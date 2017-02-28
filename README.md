@@ -1,20 +1,21 @@
 # szse_v5_parser
 深交所V5报文解析库
+<p>caoning1985@hotmail.com</p>
 
 <p>目前实现了binary协议的行情数据解析</p>
 <p>binary协议的交易数据可参考行情格式添加</p>
 
-当前性能：
-在本地环境：i7-6700@3.4GHz Win7 16GB内存，immutable_方式可达到1GB/s
-（包括 Structure Packet，GetField）
+<p>当前测试：</p>
+<p>在本地环境：i7-6700@3.4GHz Win7 16GB内存，immutable_方式可达到1GB/s</p>
+<p>（包括 Structure Packet，GetField）</p>
 
-两类报文
-cn::szse::binary::immutable_::Packet ： 不可变报文
-cn::szse::binary::mutable_::Packet ： 可变报文
-前者只保存原始字节流的引用，因此是不可变的
-后者会将原始自己流拷贝至报文内部，因此是可以修改的
-
+<p>两类报文</p>
+<pre><code>
+cn::szse::binary::immutable_::Packet // 不可变报文，只保存原始字节流的引用
+cn::szse::binary::mutable_::Packet // 可变报文，将原始自己流拷贝至报文内部
+</code></pre>
 结构化方法：
+<pre><code>
 bool Structure(const char* mem_addr, size_t* mem_size)
 输入：
     mem_addr即输入字节流
@@ -22,20 +23,23 @@ bool Structure(const char* mem_addr, size_t* mem_size)
 输出：
     bool 结构化成功/失败
     mem_size 若成功，该值为消耗的字节长度；若失败，该值为需要的字节长度
+</code></pre>
 
 数据域获取：
+<pre><code>
 bool GetField(FieldType*)
 输入：数据域对象
 输入：是否成功
-
-数据域也分为两种类型：可变和不可变，实现方式类似Packet
-GetField函数可接收两种类型的数据域
+</code></pre>
+<p>数据域也分为两种类型：可变和不可变，实现方式类似Packet</p>
+<p>GetField函数可接收两种类型的数据域</p>
 
 数据域写入：
+<pre><code>
 bool InsertField(FieldType*)
 输入：待写入的数据域
 输出：是否成功
-
+</code></pre>
 要求：只能是将可变类型数据域写入到可变类型报文中
 
 # 使用方法
