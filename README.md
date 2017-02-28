@@ -1,8 +1,8 @@
 # szse_v5_parser
 深交所V5报文解析库
 
-目前实现了binary协议的行情数据解析
-binary协议的交易数据可参考行情格式添加
+<p>目前实现了binary协议的行情数据解析</p>
+<p>binary协议的交易数据可参考行情格式添加</p>
 
 当前性能：
 在本地环境：i7-6700@3.4GHz Win7 16GB内存，immutable_方式可达到1GB/s
@@ -40,6 +40,7 @@ bool InsertField(FieldType*)
 
 # 使用方法
 
+<pre><code>
 const char* mem_addr =  szse_binary_packet_stream;  // 接收到的报文字节流
 size_t mem_size = szse_binary_packet_stream_size;   // 接收到的字节流尺寸
 
@@ -65,3 +66,4 @@ if (packet.Structure(mem_addr, &mem_size))
             break;
     }
 }
+</code></pre>
