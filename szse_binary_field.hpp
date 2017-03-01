@@ -71,6 +71,7 @@ public:
         item.Load(mem_addr_ + field_size * idx, field_size);
         return item;
     }
+    // memory size
     size_t Size() const
     {
         return mem_tail_ - mem_addr_;
@@ -123,6 +124,7 @@ public:
     {
         field_list_.push_back(field);
     }
+    // memory size
     size_t Size() const
     {
         return field_list_.empty() ? 0 : 
