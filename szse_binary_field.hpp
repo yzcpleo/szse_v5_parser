@@ -1,10 +1,11 @@
 // @Copyright 2017, cao.ning, All Rights Reserved
 // @Author:   cao.ning
 // @Date:     2017/02/27
-// @Brief:    
+// @Brief:    深交所V5binary协议中的基础数据域定义，提供了数据域的读写函数
+//            FieldArray为数据域数组结构
 
-#ifndef __CN_UTIL_SZSE_BINARY_INTERNAL_H__v2
-#define __CN_UTIL_SZSE_BINARY_INTERNAL_H__v2
+#ifndef __CN_SZSE_BINARY_FIELD_H__
+#define __CN_SZSE_BINARY_FIELD_H__
 
 #include <stdint.h>
 #include <assert.h>
@@ -17,47 +18,6 @@ namespace szse
 {
 namespace binary
 {
-
-template < typename Ty, typename ...Args >
-bool load_from_memory(
-    const char*& mem_addr, size_t& mem_size, Ty& var, Args&... rest)
-{
-    if (mem_addr && mem_size >= Ty:: mem_size())
-    {
-        var.load(mem_addr);
-        mem_addr += Ty::mem_size();
-        mem_size -= Ty::mem_size();
-        return load_from_memory(mem_addr, mem_size, rest...);
-    }
-    return false;
-}
-// end
-bool load_from_memory(const char*& mem_addr, size_t& mem_size) { return true; }
-
-template < typename Ty, typename ...Args >
-bool write_into_memory(
-    char*& mem_addr, size_t& mem_size, Ty& var, Args&... rest)
-{
-    if (mem_addr && mem_size >= Ty::mem_size())
-    {
-        var.write(mem_addr);
-        mem_addr += Ty::mem_size();
-        mem_size -= Ty::mem_size();
-        return write_into_memory(mem_addr, mem_size, rest...);
-    }
-    return false;
-}
-// end
-bool write_into_memory(char*& mem_addr, size_t& mem_size) { return true; }
-
-// 计算数据域尺寸的模板
-template <typename Ty, typename ...Args>
-size_t byte_size_sum(Ty&, Args&... rest)
-{
-    return Ty::mem_size() + byte_size_sum(rest...);
-}
-// end
-size_t byte_size_sum() { return 0; }
 
 
 namespace immutable_
@@ -193,7 +153,7 @@ struct FieldArray <true, TyField> : public mutable_::FieldArray<TyField>
 // @Class:   Field
 // @Author:  cao.ning
 // @Date:    2017/02/21
-// @Brief:
+// @Brief:   数据域，由若干个基础数据类型组成
 template <is_mutable b>
 class Field
 {
@@ -223,10 +183,56 @@ protected:
 
     template <typename Ty>
     using TypeFieldArray     = FieldArray<b, Ty>;
+
+    // 从内存中依次加载数据
+    template < typename Ty, typename ...Args >
+    bool load_from_memory(
+        const char*& mem_addr, size_t& mem_size, Ty& var, Args&... rest)
+    {
+        if (mem_addr && mem_size >= Ty::mem_size())
+        {
+            var.load(mem_addr);
+            mem_addr += Ty::mem_size();
+            mem_size -= Ty::mem_size();
+            return load_from_memory(mem_addr, mem_size, rest...);
+        }
+        return false;
+    }
+    // end
+    bool load_from_memory(const char*& mem_addr, size_t& mem_size) { return true; }
+
+    // 按序向内存写入
+    template < typename Ty, typename ...Args >
+    bool write_into_memory(
+        char*& mem_addr, size_t& mem_size, Ty& var, Args&... rest)
+    {
+        if (mem_addr && mem_size >= Ty::mem_size())
+        {
+            var.write(mem_addr);
+            mem_addr += Ty::mem_size();
+            mem_size -= Ty::mem_size();
+            return write_into_memory(mem_addr, mem_size, rest...);
+        }
+        return false;
+    }
+    // end
+    bool write_into_memory(char*& mem_addr, size_t& mem_size) { return true; }
+
+    // 计算数据域尺寸的模板
+    template <typename Ty, typename ...Args>
+    size_t byte_size_sum(Ty&, Args&... rest) const
+    {
+        return Ty::mem_size() + byte_size_sum(rest...);
+    }
+    // end
+    size_t byte_size_sum() const { return 0; }
+
 public:
-    virtual uint32_t Type() const = 0;
+    virtual uint32_t Type() const { return 0; }
     virtual uint32_t Size() const = 0;
+    // 从内存中加载
     virtual bool Load(const char* mem_addr, size_t mem_size) = 0;
+    // 将当前数据写入到指定内存中
     virtual bool Write(char* mem_addr, size_t mem_size) = 0;
 };
 
@@ -235,4 +241,4 @@ public:
 } // namespace szse END
 } // namespace cn END
 
-#endif // __CN_UTIL_SZSE_BINARY_INTERNAL_H__v2
+#endif // __CN_SZSE_BINARY_FIELD_H__

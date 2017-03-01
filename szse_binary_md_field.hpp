@@ -1,13 +1,13 @@
 // @Copyright 2017, cao.ning, All Rights Reserved
 // @Author:   cao.ning
-// @Date:     2017/02/21
-// @Brief:    数据结构定义
+// @Date:     2017/03/01
+// @Brief:    深交所V5binary协议中的行情数据结构定义
 
-#ifndef __CN_SZSE_BINARY_PACKET_H__v2
-#define __CN_SZSE_BINARY_PACKET_H__v2
+#ifndef __CN_SZSE_BINARY_MD_FIELD_H__
+#define __CN_SZSE_BINARY_MD_FIELD_H__
 
-#include "szse_binary_type_v2.hpp"
-#include "szse_binary_internal_v2.hpp"
+#include "szse_binary_type.hpp"
+#include "szse_binary_field.hpp"
 
 namespace cn
 {
@@ -40,215 +40,11 @@ public:
     {
         return write_into_memory(mem_addr, mem_size, MsgType, BodyLength);
     }
-    
+
     TypeInt<uint32_t> MsgType;      // 消息类型
     TypeInt<uint32_t> BodyLength;   // 消息体长度
 };
 
-// 计算校验和
-static uint32_t GenerateCheckSum(char *buf, uint32_t buf_size)
-{
-    uint32_t idx, cks;
-    for (idx = 0L, cks = 0; idx < buf_size; cks += (uint32_t)buf[idx++]);
-    return cks % 256;
-}
-
-namespace immutable_
-{
-
-// @Class:   Packet
-// @Author:  cao.ning
-// @Date:    2017/02/21
-// @Brief:   只用来记录一块有效的报文字节流，仅保存指针信息
-class Packet
-{
-public:
-    typedef MsgHeader<false> HeaderType;
-    typedef cn::szse::binary::Int<false, uint32_t> CheckSumType;
-
-    Packet() {}
-    virtual ~Packet() {}
-    inline const HeaderType* GetHeader() const { return &header_; }
-    bool Structure(const char* mem_addr, size_t* mem_size)
-    {
-        if (*mem_size < HeaderType::SSize())
-        {
-            *mem_size = HeaderType::SSize();
-            return false;
-        }
-        header_.Load(mem_addr, *mem_size);
-        size_t total_packet_size = StreamSize();
-        if (*mem_size < total_packet_size)
-        {
-            *mem_size = total_packet_size;
-            return false;
-        }
-        *mem_size = total_packet_size;
-        // range: header + body
-        size_t check_sum_range = total_packet_size - CheckSumType::mem_size();
-        check_sum_.load(mem_addr + check_sum_range);
-        if (GenerateCheckSum((char*)mem_addr, check_sum_range)
-            != check_sum_.get_value())
-        {
-            return false;
-        }
-        // set pointer
-        field_buf_addr_ = mem_addr + HeaderType::SSize();
-        field_buf_size_ = header_.BodyLength.get_value();
-        return true;
-    }
-    const void* ToStream()
-    {
-        // 直接返回第一个字段的首地址
-        return header_.MsgType.mem_addr();
-    }
-    size_t StreamSize()
-    {
-        return HeaderType::SSize() 
-            + header_.BodyLength.get_value() 
-            + CheckSumType::mem_size();
-    }
-    // 可以使用mutable或immutable类型数据结构
-    template <typename FieldType>
-    bool GetField(FieldType* f)
-    {
-        return f->Load(field_buf_addr_, field_buf_size_);
-    }
-    // REMARK: 该类报文只保留了原始的字节流指针，因此不提供写入函数
-protected:
-    HeaderType header_;
-    CheckSumType check_sum_;
-    //
-    const char* field_buf_addr_;
-    size_t field_buf_size_;
-};
-} // namespace immutable_ END
-
-namespace mutable_
-{
-class Packet
-{
-    static const uint32_t INIT_PACKAGE_STREAM_SIZE = 1024;
-public:
-    typedef MsgHeader<true> HeaderType;
-    typedef cn::szse::binary::Int<true, uint32_t> CheckSumType;
-
-    Packet() : packet_stream_size_(INIT_PACKAGE_STREAM_SIZE) 
-    {
-        packet_stream_ = (char*)malloc(packet_stream_size_);
-        assert(packet_stream_);
-        memset(packet_stream_, 0, packet_stream_size_);
-        field_stream_ = packet_stream_ + HeaderType::SSize();
-    }
-    virtual ~Packet()
-    {
-        if (packet_stream_)
-        {
-            free(packet_stream_);
-            packet_stream_ = nullptr;
-        }
-    }
-    inline const HeaderType* GetHeader() const { return &header_; }
-    bool Structure(const char* mem_addr, size_t* mem_size)
-    {
-        if (*mem_size < HeaderType::SSize())
-        {
-            *mem_size = HeaderType::SSize();
-            return false;
-        }
-        header_.Load(mem_addr, *mem_size);
-        size_t total_packet_size = StreamSize();
-        if (*mem_size < total_packet_size)
-        {
-            *mem_size = total_packet_size;
-            return false;
-        }
-        *mem_size = total_packet_size;
-        // range: header + body
-        const char* check_sum_pos = 
-            mem_addr + total_packet_size - CheckSumType::mem_size();
-        uint32_t chech_sum_value = ChangeEndian(*(uint32_t*)check_sum_pos);
-        if (GenerateCheckSum((char*)mem_addr, 
-            total_packet_size - CheckSumType::mem_size())
-            != chech_sum_value)
-        {
-            return false;
-        }
-        // copy data
-        if (packet_stream_size_ < total_packet_size)
-        {
-            resize_package_stream(total_packet_size);
-        }
-        memcpy(packet_stream_, mem_addr, total_packet_size);
-        return true;
-    }
-    const void* ToStream()
-    {
-        return packet_stream_;
-    }
-    uint32_t StreamSize()
-    {
-        return HeaderType::SSize()
-            + header_.BodyLength.get_value()
-            + CheckSumType::mem_size();
-    }
-    // 可以使用mutable或immutable类型数据结构
-    template <typename FieldType>
-    bool GetField(FieldType* f)
-    {
-        return f->Load(field_stream_, header_.BodyLength.get_value());
-    }
-    template <typename FieldType>
-    bool InsertField(FieldType* f)
-    {
-        size_t field_size = f->Size();
-        uint32_t need_stream_len = 
-            HeaderType::SSize() + field_size + CheckSumType::mem_size();
-        if (packet_stream_size_ < need_stream_len)
-        {
-            resize_package_stream(need_stream_len);
-        }
-        header_.MsgType.set_value(f->Type());
-        header_.BodyLength.set_value(field_size);
-        if (!header_.Write(packet_stream_, HeaderType::SSize()))
-        {
-            return false;
-        }
-        if (!f->Write(field_stream_, packet_stream_size_ - HeaderType::SSize()))
-        {
-            return false;
-        }
-        uint32_t check_sum = GenerateCheckSum((char*)packet_stream_,
-            HeaderType::SSize() + field_size);
-        char* check_sum_pos = (char*)field_stream_ + field_size;
-        *(uint32_t*)check_sum_pos = ChangeEndian(check_sum);
-        return true;
-    }
-protected:
-    // 重新分配报文字节流，原始信息将会被销毁
-    void resize_package_stream(uint32_t new_size)
-    {
-        // 缓冲区长度为64字节的整数倍
-        packet_stream_size_ = (new_size / 64 + 1) * 64;
-        if (packet_stream_)
-        {
-            free(packet_stream_);
-        }
-        packet_stream_ = (char*)malloc(packet_stream_size_);
-        memset(packet_stream_, 0, packet_stream_size_);
-        field_stream_ = packet_stream_ + HeaderType::SSize();
-    }
-protected:
-    // 报文字节流
-    char* packet_stream_;
-    // 字节流长度
-    uint32_t packet_stream_size_;
-    // 消息头
-    HeaderType header_;
-    // 消息体起始字节地址，实际指向packet_stream_中的某位置
-    char* field_stream_;
-};
-} // namespace mutable_ END
 
 // 登录消息 Logon
 template <is_mutable b>
@@ -256,7 +52,7 @@ class Logon : public Field<b>
 {
 public:
     static const uint32_t TypeID = 1;
-    
+
     TypeCompID          SenderCompID;           // 发送方代码
     TypeCompID          TargetCompID;           // 接收方代码
     TypeInt<int32_t>    HeartBtInt;             // 心跳间隔，单位是秒。 用户行情系统登陆时提供给行情网关。
@@ -266,7 +62,7 @@ public:
     virtual uint32_t Type() const override { return TypeID; }
     virtual uint32_t Size() const override
     {
-        return byte_size_sum(SenderCompID, TargetCompID, HeartBtInt, 
+        return byte_size_sum(SenderCompID, TargetCompID, HeartBtInt,
             Password, DefaultApplVerID);
     }
     virtual bool Load(const char* mem_addr, size_t mem_size) override
@@ -300,7 +96,7 @@ public:
     static const int32_t kSessionStatus_type_10 = 10;    //收到的 NextExpectedMsgSeqNum(789)太大.
     static const int32_t kSessionStatus_type_101 = 101;   //其他
     static const int32_t kSessionStatus_type_102 = 102;   //无效消息
-    
+
     TypeInt<int32_t>    SessionStatus;          // 退出时的会话状态
     TypeString<200>     Text;                   // 注销原因的进一步补充说明
 public:
@@ -320,7 +116,7 @@ public:
 };
 
 // 心跳消息  Heartbeat
-template <is_mutable b> 
+template <is_mutable b>
 class Heartbeat : public Field<b>
 {
 public:
@@ -333,7 +129,7 @@ public:
 };
 
 // 业务拒绝消息 BusinessReject
-template <is_mutable b> 
+template <is_mutable b>
 class BusinessReject : public Field<b>
 {
 public:
@@ -364,7 +160,7 @@ public:
 };
 
 // 频道心跳消息  ChannelHeartbeat
-template <is_mutable b> 
+template <is_mutable b>
 class ChannelHeartbeat : public Field<b>
 {
 public:
@@ -381,18 +177,18 @@ public:
     }
     virtual bool Load(const char* mem_addr, size_t mem_size) override
     {
-        return load_from_memory(mem_addr, mem_size, 
+        return load_from_memory(mem_addr, mem_size,
             ChannelNo, ApplLastSeqNum, EndOfChannel);
     }
     virtual bool Write(char* mem_addr, size_t mem_size) override
     {
-        return write_into_memory(mem_addr, mem_size, 
+        return write_into_memory(mem_addr, mem_size,
             ChannelNo, ApplLastSeqNum, EndOfChannel);
     }
 };
 
 // 公告消息
-template <is_mutable b> 
+template <is_mutable b>
 class Announcement : public Field<b>
 {
 public:
@@ -409,7 +205,7 @@ public:
     virtual uint32_t Type() const override { return TypeID; }
     virtual uint32_t Size() const override
     {
-        return byte_size_sum(OrigTime, ChannelNo, NewsID, Headline, 
+        return byte_size_sum(OrigTime, ChannelNo, NewsID, Headline,
             RawDataFormat, RawDataLength)
             + RawDataLength.get_value();
     }
@@ -439,12 +235,12 @@ public:
 };
 
 // 重传消息  ReTransmit
-template <is_mutable b> 
+template <is_mutable b>
 class ReTransmit : public Field<b>
 {
 public:
     static const uint32_t TypeID = 390094;
-    
+
     static const uint8_t kResendType_type_1 = 1;      //逐笔行情数据
     static const uint8_t kResendType_type_2 = 2;      //公告信息
 
@@ -457,22 +253,22 @@ public:
     TypeInt<uint16_t>   ChannelNo;          // 频道代码
     TypeSeqNum          ApplBegSeqNum;      // 起始序号，当 ResendType=1 时生效，指定记录序号的范围
     TypeSeqNum          ApplEndSeqNum;      // 结束序号，当 ResendType=1 时生效，当 ApplEndSeqNum=0 时，
-                                            // 行情网关会将 ApplEndSeqNum 设置为收到重传请求时，
-                                            // 该频道数据在内存中的最大值
+    // 行情网关会将 ApplEndSeqNum 设置为收到重传请求时，
+    // 该频道数据在内存中的最大值
     TypeString<8>        NewsID;            // 公告唯一标识，当 ResendType=2 时生效，为空时表示申请公告概要
     TypeInt<uint8_t>     ResendStatus;      // 重传状态，仅在行情网关前置机返回给用户行情系统服务器时有效
     TypeString<16>       RejectText;        // 仅在行情网关前置机返回给用户行情系统服务器时有效
-                                            // 如果请求被行情网关前置机拒绝，错误代码在这个域返回
+    // 如果请求被行情网关前置机拒绝，错误代码在这个域返回
 public:
     virtual uint32_t Type() const override { return TypeID; }
     virtual uint32_t Size() const override
     {
-        return byte_size_sum(ResendType, ChannelNo, ApplBegSeqNum, 
+        return byte_size_sum(ResendType, ChannelNo, ApplBegSeqNum,
             ApplEndSeqNum, NewsID, ResendStatus, RejectText);
     }
     virtual bool Load(const char* mem_addr, size_t mem_size) override
     {
-        return load_from_memory(mem_addr, mem_size, ResendType, ChannelNo, 
+        return load_from_memory(mem_addr, mem_size, ResendType, ChannelNo,
             ApplBegSeqNum, ApplEndSeqNum, NewsID, ResendStatus, RejectText);
     }
     virtual bool Write(char* mem_addr, size_t mem_size) override
@@ -483,7 +279,7 @@ public:
 };
 
 // 市场实时状态 MarketStatus
-template <is_mutable b> 
+template <is_mutable b>
 class MarketStatus : public Field<b>
 {
 public:
@@ -527,10 +323,9 @@ public:
 };
 
 // 证券实时状态 SecurityStatus
-template <is_mutable b> 
+template <is_mutable b>
 class SecurityStatus : public Field<b>
 {
-    
 public:
     static const uint32_t TypeID = 390013;
     static const uint16_t kSecuritySwitchType_type_1 = 1;      // 融资买入(适用于融资标的证券)
@@ -567,24 +362,24 @@ public:
     TypeSecurityID          SecurityID;        // 证券代码
     TypeString<4>           SecurityIDSource;  // 证券代码源,102=深圳证券交易所,103=香港交易所
     TypeString<8>           FinancialStatus;   // 证券状态
-                                            // A = 上市公司早间披露提示
-                                            // B = 上市公司午间披露提示
-                                            // 每个字节揭示一种状态，最多可同时揭示八种状态
+    // A = 上市公司早间披露提示
+    // B = 上市公司午间披露提示
+    // 每个字节揭示一种状态，最多可同时揭示八种状态
     TypeNumInGroup         NoSwitch;            // 开关个数
-    struct SecuritySwitch
+    struct SecuritySwitch : public Field<b>
     {
         TypeInt<uint16_t>   SecuritySwitchType;     // 开关类别
         TypeBoolean         SecuritySwitchStatus;   // 开关状态
-        uint32_t Size() const
+        virtual uint32_t Size() const override
         {
             return byte_size_sum(SecuritySwitchType, SecuritySwitchStatus);
         }
-        bool Load(const char* mem_addr, size_t mem_size) 
+        virtual bool Load(const char* mem_addr, size_t mem_size) override
         {
-            return load_from_memory(mem_addr, mem_size, 
+            return load_from_memory(mem_addr, mem_size,
                 SecuritySwitchType, SecuritySwitchStatus);
         }
-        bool Write(char* mem_addr, size_t mem_size)
+        virtual bool Write(char* mem_addr, size_t mem_size) override
         {
             return write_into_memory(mem_addr, mem_size,
                 SecuritySwitchType, SecuritySwitchStatus);
@@ -614,7 +409,7 @@ public:
 };
 
 // 快照行情频道统计
-template <is_mutable b> 
+template <is_mutable b>
 class MarketSnapshotStatistic : public Field<b>
 {
 public:
@@ -622,21 +417,21 @@ public:
     TypeLocalTimeStamp      OrigTime;           // 数据生成时间
     TypeInt<uint16_t>       ChannelNo;          // 频道代码
     TypeNumInGroup          NoMDStreamID;       // 行情类别个数
-    struct StreamStatistic
+    struct StreamStatistic : public Field<b>
     {
         TypeString<3>           MDStreamID;         // 行情类别
         TypeInt<uint32_t>       StockNum;           // 证券只数
         TypeString<8>           TradingPhaseCode;   // 闭市状态，第 0 位：T=连续竞价；E=已闭市
-        uint32_t Size() const
+        virtual uint32_t Size() const override
         {
             return byte_size_sum(MDStreamID, StockNum, TradingPhaseCode);
         }
-        bool Load(const char* mem_addr, size_t mem_size)
+        virtual bool Load(const char* mem_addr, size_t mem_size) override
         {
-            return load_from_memory(mem_addr, mem_size, MDStreamID, StockNum, 
+            return load_from_memory(mem_addr, mem_size, MDStreamID, StockNum,
                 TradingPhaseCode);
         }
-        bool Write(char* mem_addr, size_t mem_size)
+        virtual bool Write(char* mem_addr, size_t mem_size) override
         {
             return write_into_memory(mem_addr, mem_size, MDStreamID, StockNum,
                 TradingPhaseCode);
@@ -665,30 +460,30 @@ public:
 };
 
 // 快照行情的公共字段
-template <is_mutable b> 
+template <is_mutable b>
 class MarketSnapshotBase : public Field<b>
 {
 public:
     TypeLocalTimeStamp      OrigTime;           // 数据生成时间
     TypeInt<uint16_t>       ChannelNo;          // 频道代码
     TypeString<3>           MDStreamID;         // 行情类别
-                                            // 010 现货（股票，基金，债券等）集中竞价交易快照行情
-                                            // 020 质押式回购交易快照行情
-                                            // 030 债券分销快照行情
-                                            // 040 期权集中竞价交易快照行情
-                                            // 060 以收盘价交易的盘后定价交易快照行情
-                                            // 061 以成交量加权平均价交易的盘后定价交易快照行情
-                                            // 900 指数快照行情
-                                            // 910 成交量统计指标快照行情
+    // 010 现货（股票，基金，债券等）集中竞价交易快照行情
+    // 020 质押式回购交易快照行情
+    // 030 债券分销快照行情
+    // 040 期权集中竞价交易快照行情
+    // 060 以收盘价交易的盘后定价交易快照行情
+    // 061 以成交量加权平均价交易的盘后定价交易快照行情
+    // 900 指数快照行情
+    // 910 成交量统计指标快照行情
     TypeSecurityID          SecurityID;         // 证券代码
     TypeString<4>           SecurityIDSource;   // 证券代码源
     TypeString<8>           TradingPhaseCode;   // 产品所处的交易阶段代码
-                                            // 第 0 位：
-                                            // S=启动（开市前）；O=开盘集合竞价；T=连续竞价；B=休市
-                                            // C=收盘集合竞价；E=已闭市；H=临时停牌；A=盘后交易
-                                            // V=波动性中断
-                                            // 第 1 位：
-                                            // 0=正常状态；1=全天停牌
+    // 第 0 位：
+    // S=启动（开市前）；O=开盘集合竞价；T=连续竞价；B=休市
+    // C=收盘集合竞价；E=已闭市；H=临时停牌；A=盘后交易
+    // V=波动性中断
+    // 第 1 位：
+    // 0=正常状态；1=全天停牌
     TypePrice               PrevClosePx;        // 昨收价
     TypeInt<int64_t>        NumTrades;          // 成交笔数
     TypeQty                 TotalVolumeTrade;   // 成交总量
@@ -702,8 +497,8 @@ public:
     virtual bool Load(const char* mem_addr, size_t mem_size) override
     {
         mem_head_ = mem_tail_ = mem_addr;
-        return load_from_memory(mem_tail_, mem_size, OrigTime, 
-            ChannelNo, MDStreamID, SecurityID, SecurityIDSource, 
+        return load_from_memory(mem_tail_, mem_size, OrigTime,
+            ChannelNo, MDStreamID, SecurityID, SecurityIDSource,
             TradingPhaseCode, PrevClosePx, NumTrades, TotalVolumeTrade,
             TotalValueTrade);
     }
@@ -727,7 +522,7 @@ protected:
 // 020 质押式回购交易快照行情
 // 030 债券分销快照行情
 // 040 期权集中竞价交易快照行情
-template <is_mutable b> 
+template <is_mutable b>
 class MarketSnapshot_300111 : public MarketSnapshotBase<b>
 {
     typedef MarketSnapshotBase<b> base_type;
@@ -736,7 +531,7 @@ public:
 public:
     // Extend Fields 业务扩展字段
     TypeNumInGroup          NoMDEntries;            // 行情条目个数
-    struct SecurityEntry
+    struct SecurityEntry : public Field<b>
     {
         TypeString<2>           MDEntryType;     // 行情条目类别
         TypeInt<int64_t>        MDEntryPx;       // 价格，乘数1000000
@@ -744,34 +539,34 @@ public:
         TypeInt<uint16_t>       MDPriceLevel;    // 买卖盘档位
         TypeInt<int64_t>        NumberOfOrders;  // 价位总委托笔数，为 0 表示不揭示
         TypeNumInGroup          NoOrders;        // 价位揭示委托笔数，为 0 表示不揭示
-        struct OrderQty
+        struct OrderQty : public Field<b>
         {
             TypeQty             Qty;
-            uint32_t Size() const { return TypeQty::mem_size(); }
-            bool Load(const char* mem_addr, size_t mem_size)
+            virtual uint32_t Size() const override { return TypeQty::mem_size(); }
+            virtual bool Load(const char* mem_addr, size_t mem_size) override
             {
                 return load_from_memory(mem_addr, mem_size, Qty);
             }
-            bool Write(char* mem_addr, size_t mem_size)
+            virtual bool Write(char* mem_addr, size_t mem_size) override
             {
                 return write_into_memory(mem_addr, mem_size, Qty);
             }
         };
         TypeFieldArray<OrderQty>       OrderQtyArray;        // 委托数量
-        uint32_t Size() const
+        uint32_t Size() const override
         {
             return byte_size_sum(MDEntryType, MDEntryPx, MDEntrySize,
                 MDPriceLevel, NumberOfOrders, NoOrders)
                 + OrderQtyArray.Size();
         }
-        bool Load(const char* mem_addr, size_t mem_size)
+        bool Load(const char* mem_addr, size_t mem_size) override
         {
             return load_from_memory(mem_addr, mem_size, MDEntryType,
                 MDEntryPx, MDEntrySize, MDPriceLevel, NumberOfOrders,
                 NoOrders)
                 && OrderQtyArray.Load(mem_addr, mem_size, NoOrders.get_value());
         }
-        bool Write(char* mem_addr, size_t mem_size)
+        bool Write(char* mem_addr, size_t mem_size) override
         {
             return write_into_memory(mem_addr, mem_size, MDEntryType,
                 MDEntryPx, MDEntrySize, MDPriceLevel, NumberOfOrders,
@@ -815,7 +610,7 @@ public:
 // 盘后定价交易业务行情快照 MarketSnapshot_300611
 // 060 以收盘价交易的盘后定价交易快照行情
 // 061 以成交量加权平均价交易的盘后定价交易快照行情
-template <is_mutable b> 
+template <is_mutable b>
 class MarketSnapshot_300611 : public MarketSnapshotBase<b>
 {
     typedef MarketSnapshotBase<b> base_type;
@@ -824,21 +619,21 @@ public:
 public:
     // Extend Fields 各业务扩展字段
     TypeNumInGroup   NoMDEntries;            // 行情条目个数
-    struct SecurityEntry 
+    struct SecurityEntry : public Field<b>
     {
         TypeString<2>           MDEntryType;     // 行情条目类别，0=买入；1=卖出
         TypeInt<int64_t>        MDEntryPx;       // 价格
         TypeQty                 MDEntrySize;     // 数量
-        uint32_t Size() const
+        virtual uint32_t Size() const override
         {
             return byte_size_sum(MDEntryType, MDEntryPx, MDEntrySize);
         }
-        bool Load(const char* mem_addr, size_t mem_size)
+        virtual bool Load(const char* mem_addr, size_t mem_size) override
         {
-            return load_from_memory(mem_addr, mem_size, 
+            return load_from_memory(mem_addr, mem_size,
                 MDEntryType, MDEntryPx, MDEntrySize);
         }
-        bool Write(char* mem_addr, size_t mem_size)
+        virtual bool Write(char* mem_addr, size_t mem_size) override
         {
             return write_into_memory(mem_addr, mem_size,
                 MDEntryType, MDEntryPx, MDEntrySize);
@@ -879,7 +674,7 @@ public:
 
 // 指数行情快照 MarketSnapshot_309011
 // 900 指数快照行情
-template <is_mutable b> 
+template <is_mutable b>
 class MarketSnapshot_309011 : public MarketSnapshotBase<b>
 {
     typedef MarketSnapshotBase<b> base_type;
@@ -888,19 +683,19 @@ public:
 public:
     // Extend Fields 各业务扩展字段
     TypeNumInGroup   NoMDEntries;            // 行情条目个数
-    struct IndexEntry
+    struct IndexEntry : public Field<b>
     {
         TypeString<2>           MDEntryType;     // 行情条目类别
         TypeInt<int64_t>        MDEntryPx;       // 指数点位
-        uint32_t Size() const
+        virtual uint32_t Size() const override
         {
             return byte_size_sum(MDEntryType, MDEntryPx);
         }
-        bool Load(const char* mem_addr, size_t mem_size)
+        virtual bool Load(const char* mem_addr, size_t mem_size) override
         {
             return load_from_memory(mem_addr, mem_size, MDEntryType, MDEntryPx);
         }
-        bool Write(char* mem_addr, size_t mem_size)
+        virtual bool Write(char* mem_addr, size_t mem_size) override
         {
             return write_into_memory(mem_addr, mem_size, MDEntryType, MDEntryPx);
         }
@@ -940,7 +735,7 @@ public:
 
 // 成交量统计指标行情快照 MarketSnapshot_309111
 // 910 成交量统计指标快照行情
-template <is_mutable b> 
+template <is_mutable b>
 class MarketSnapshot_309111 : public MarketSnapshotBase<b>
 {
     typedef MarketSnapshotBase<b> base_type;
@@ -980,19 +775,19 @@ public:
 };
 
 // 逐笔委托行情的公共字段
-template <is_mutable b> 
+template <is_mutable b>
 class OrderSnapshotBase : public Field<b>
 {
 public:
     TypeInt<uint16_t>       ChannelNo;          // 频道代码
     TypeSeqNum              ApplSeqNum;         // 消息记录号，从 1 开始计数
     TypeString<3>           MDStreamID;         // 行情类别
-                                            // 011 现货（股票，基金，债券等）集中竞价交易逐笔行情
-                                            // 021 质押式回购交易逐笔行情
-                                            // 041 期权集中竞价交易逐笔行情
-                                            // 051 协议交易逐笔意向行情
-                                            // 052 协议交易逐笔定价行情
-                                            // 071 转融通证券出借逐笔行情
+    // 011 现货（股票，基金，债券等）集中竞价交易逐笔行情
+    // 021 质押式回购交易逐笔行情
+    // 041 期权集中竞价交易逐笔行情
+    // 051 协议交易逐笔意向行情
+    // 052 协议交易逐笔定价行情
+    // 071 转融通证券出借逐笔行情
     TypeSecurityID       SecurityID;         // 证券代码
     TypeString<4>           SecurityIDSource;   // 证券代码源
     TypePrice            Price;              // 委托价格
@@ -1027,7 +822,7 @@ protected:
 // 011 现货（股票，基金，债券等）集中竞价交易逐笔行情
 // 021 质押式回购交易逐笔行情
 // 041 期权集中竞价交易逐笔行情
-template <is_mutable b> 
+template <is_mutable b>
 class OrderSnapshot_300192 : public OrderSnapshotBase<b>
 {
     typedef OrderSnapshotBase<b> base_type;
@@ -1069,7 +864,7 @@ public:
 // 协议交易业务逐笔委托行情 OrderSnapshot_300592
 // 051 协议交易逐笔意向行情
 // 052 协议交易逐笔定价行情
-template <is_mutable b> 
+template <is_mutable b>
 class OrderSnapshot_300592 : public OrderSnapshotBase<b>
 {
     typedef OrderSnapshotBase<b> base_type;
@@ -1093,7 +888,7 @@ public:
             size_t base_type_size = base_type::mem_tail_ - base_type::mem_head_;
             mem_addr += base_type_size;
             mem_size -= base_type_size;
-            return load_from_memory(mem_addr, mem_size, 
+            return load_from_memory(mem_addr, mem_size,
                 ConfirmID, Contactor, ContactInfo);
         }
         return false;
@@ -1113,7 +908,7 @@ public:
 
 // 转融通证券出借业务逐笔委托行情 OrderSnapshot_300792
 // 071 转融通证券出借逐笔行情
-template <is_mutable b> 
+template <is_mutable b>
 class OrderSnapshot_300792 : public OrderSnapshotBase<b>
 {
     typedef OrderSnapshotBase<b> base_type;
@@ -1154,19 +949,19 @@ public:
 };
 
 // 逐笔成交行情的公共字段
-template <is_mutable b> 
+template <is_mutable b>
 class TransactionSnapshotBase : public Field<b>
 {
 public:
     TypeInt<uint16_t>       ChannelNo;          // 频道代码
     TypeSeqNum           ApplSeqNum;         // 消息记录号，从 1 开始计数
     TypeString<3>           MDStreamID;         // 行情类别
-                                        // 011 现货（股票，基金，债券等）集中竞价交易逐笔行情
-                                        // 021 质押式回购交易逐笔行情
-                                        // 041 期权集中竞价交易逐笔行情
-                                        // 051 协议交易逐笔意向行情
-                                        // 052 协议交易逐笔定价行情
-                                        // 071 转融通证券出借逐笔行情
+    // 011 现货（股票，基金，债券等）集中竞价交易逐笔行情
+    // 021 质押式回购交易逐笔行情
+    // 041 期权集中竞价交易逐笔行情
+    // 051 协议交易逐笔意向行情
+    // 052 协议交易逐笔定价行情
+    // 071 转融通证券出借逐笔行情
     TypeSeqNum           BidApplSeqNum;      // 买方委托索引，从 1 开始计数， 0 表示无对应委托
     TypeSeqNum           OfferApplSeqNum;    // 卖方委托索引，从 1 开始计数， 0 表示无对应委托
     TypeSecurityID       SecurityID;         // 证券代码
@@ -1199,7 +994,7 @@ public:
 // 011 现货（股票，基金，债券等）集中竞价交易逐笔行情
 // 021 质押式回购交易逐笔行情
 // 041 期权集中竞价交易逐笔行情
-template <is_mutable b> 
+template <is_mutable b>
 class TransactionSnapshot_300191 : public TransactionSnapshotBase<b>
 {
     typedef TransactionSnapshotBase<b> base_type;
@@ -1215,7 +1010,7 @@ public:
 // 协议交易业务逐笔成交行情 TransactionSnapshot_300591
 // 051 协议交易逐笔意向行情
 // 052 协议交易逐笔定价行情
-template <is_mutable b> 
+template <is_mutable b>
 class TransactionSnapshot_300591 : public TransactionSnapshotBase<b>
 {
     typedef TransactionSnapshotBase<b> base_type;
@@ -1230,7 +1025,7 @@ public:
 
 // 转融通证券出借业务逐笔成交行情 TransactionSnapshot_300791
 // 071 转融通证券出借逐笔行情
-template <is_mutable b> 
+template <is_mutable b>
 class TransactionSnapshot_300791 : public TransactionSnapshotBase<b>
 {
     typedef TransactionSnapshotBase<b> base_type;
@@ -1243,8 +1038,65 @@ public:
     virtual uint32_t Type() const override { return TypeID; }
 };
 
+namespace immutable_
+{
+typedef cn::szse::binary::MsgHeader<false> MsgHeader;
+typedef cn::szse::binary::Logon<false> Logon;
+typedef cn::szse::binary::Logout<false> Logout;
+typedef cn::szse::binary::Heartbeat<false> Heartbeat;
+typedef cn::szse::binary::BusinessReject<false> BusinessReject;
+typedef cn::szse::binary::ChannelHeartbeat<false> ChannelHeartbeat;
+typedef cn::szse::binary::Announcement<false> Announcement;
+typedef cn::szse::binary::ReTransmit<false> ReTransmit;
+typedef cn::szse::binary::MarketStatus<false> MarketStatus;
+typedef cn::szse::binary::SecurityStatus<false> SecurityStatus;
+typedef cn::szse::binary::MarketSnapshotStatistic<false> MarketSnapshotStatistic;
+typedef cn::szse::binary::MarketSnapshotBase<false> MarketSnapshotBase;
+typedef cn::szse::binary::MarketSnapshot_300111<false> MarketSnapshot_300111;
+typedef cn::szse::binary::MarketSnapshot_300611<false> MarketSnapshot_300611;
+typedef cn::szse::binary::MarketSnapshot_309011<false> MarketSnapshot_309011;
+typedef cn::szse::binary::MarketSnapshot_309111<false> MarketSnapshot_309111;
+typedef cn::szse::binary::OrderSnapshotBase<false> OrderSnapshotBase;
+typedef cn::szse::binary::OrderSnapshot_300192<false> OrderSnapshot_300192;
+typedef cn::szse::binary::OrderSnapshot_300592<false> OrderSnapshot_300592;
+typedef cn::szse::binary::OrderSnapshot_300792<false> OrderSnapshot_300792;
+typedef cn::szse::binary::TransactionSnapshotBase<false> TransactionSnapshotBase;
+typedef cn::szse::binary::TransactionSnapshot_300191<false> TransactionSnapshot_300191;
+typedef cn::szse::binary::TransactionSnapshot_300591<false> TransactionSnapshot_300591;
+typedef cn::szse::binary::TransactionSnapshot_300791<false> TransactionSnapshot_300791;
+} // namespace immutable_ END
+
+namespace mutable_
+{
+typedef cn::szse::binary::MsgHeader<true> MsgHeader;
+typedef cn::szse::binary::Logon<true> Logon;
+typedef cn::szse::binary::Logout<true> Logout;
+typedef cn::szse::binary::Heartbeat<true> Heartbeat;
+typedef cn::szse::binary::BusinessReject<true> BusinessReject;
+typedef cn::szse::binary::ChannelHeartbeat<true> ChannelHeartbeat;
+typedef cn::szse::binary::Announcement<true> Announcement;
+typedef cn::szse::binary::ReTransmit<true> ReTransmit;
+typedef cn::szse::binary::MarketStatus<true> MarketStatus;
+typedef cn::szse::binary::SecurityStatus<true> SecurityStatus;
+typedef cn::szse::binary::MarketSnapshotStatistic<true> MarketSnapshotStatistic;
+typedef cn::szse::binary::MarketSnapshotBase<true> MarketSnapshotBase;
+typedef cn::szse::binary::MarketSnapshot_300111<true> MarketSnapshot_300111;
+typedef cn::szse::binary::MarketSnapshot_300611<true> MarketSnapshot_300611;
+typedef cn::szse::binary::MarketSnapshot_309011<true> MarketSnapshot_309011;
+typedef cn::szse::binary::MarketSnapshot_309111<true> MarketSnapshot_309111;
+typedef cn::szse::binary::OrderSnapshotBase<true> OrderSnapshotBase;
+typedef cn::szse::binary::OrderSnapshot_300192<true> OrderSnapshot_300192;
+typedef cn::szse::binary::OrderSnapshot_300592<true> OrderSnapshot_300592;
+typedef cn::szse::binary::OrderSnapshot_300792<true> OrderSnapshot_300792;
+typedef cn::szse::binary::TransactionSnapshotBase<true> TransactionSnapshotBase;
+typedef cn::szse::binary::TransactionSnapshot_300191<true> TransactionSnapshot_300191;
+typedef cn::szse::binary::TransactionSnapshot_300591<true> TransactionSnapshot_300591;
+typedef cn::szse::binary::TransactionSnapshot_300791<true> TransactionSnapshot_300791;
+} // namespace mutable_ END
+
+
 } // namespace binary END
 } // namespace szse END
 } // namespace cn END
 
-#endif // __CN_SZSE_BINARY_PACKET_H__
+#endif // __CN_SZSE_BINARY_MD_FIELD_H__

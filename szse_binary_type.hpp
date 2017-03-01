@@ -1,7 +1,9 @@
 // @Copyright 2017, cao.ning, All Rights Reserved
 // @Author:   cao.ning
 // @Date:     2017/02/21
-// @Brief:    基础类型
+// @Brief:    深交所V5binary协议中的基础数据类型定义
+//            immutable_：不可变类型，只保存指针对象，提供读操作，不提供写操作
+//            mutable_  ：可变类型，保存了实际数据，提供了读写操作
 
 #ifndef __CN_SZSE_BINARY_TYPE_H__
 #define __CN_SZSE_BINARY_TYPE_H__
