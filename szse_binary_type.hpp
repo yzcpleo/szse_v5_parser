@@ -153,7 +153,7 @@ public:
 
 // 字符串类型，Size表示字符串可装载的最大字节数
 // 字符串实际长度小于字段类型最大长度的都后补空格
-// REMARK: String类型直接操作的内存，因此不存在最后的 '\0' 字节，直接获取字符串会越界
+// REMARK: String类型直接操作的内存，因此不存在最后的 '\0'字节，直接获取字符串会越界
 template <size_t Size> class String : public base_object<Size>
 {
 public:
@@ -302,74 +302,46 @@ public:
 
 
 template <is_mutable, size_t Size>
-struct base_object : public immutable_::base_object<Size>
-{
-};
+struct base_object : public immutable_::base_object<Size> {};
 
 template <size_t Size> 
-struct base_object<true, Size> : public mutable_::base_object<Size>
-{
-};
+struct base_object<true, Size> : public mutable_::base_object<Size> {};
 
 template <is_mutable, typename InnerTy>
-struct Int : public immutable_::Int<typename InnerTy>
-{
-};
+struct Int : public immutable_::Int<typename InnerTy> {};
 
 template <typename InnerTy> 
-struct Int <true, InnerTy> : public mutable_::Int<typename InnerTy>
-{
-};
+struct Int <true, InnerTy> : public mutable_::Int<typename InnerTy> {};
 
 template <is_mutable, int x, int y>
-struct Number : public immutable_::Number<x, y>
-{
-};
+struct Number : public immutable_::Number<x, y> {};
 
 template <int x, int y> 
-struct Number <true, x, y> : public mutable_::Number<x, y>
-{
-};
+struct Number <true, x, y> : public mutable_::Number<x, y> {};
 
 template <is_mutable>
-struct Boolean : public immutable_::Boolean
-{
-};
+struct Boolean : public immutable_::Boolean {};
 
 template <> 
-struct Boolean <true> : public mutable_::Boolean
-{
-};
+struct Boolean <true> : public mutable_::Boolean {};
 
 template <is_mutable>
-struct LocalTimeStamp : public immutable_::LocalTimeStamp
-{
-};
+struct LocalTimeStamp : public immutable_::LocalTimeStamp {};
 
 template <> 
-struct LocalTimeStamp <true> : public mutable_::LocalTimeStamp
-{
-};
+struct LocalTimeStamp <true> : public mutable_::LocalTimeStamp {};
 
 template <is_mutable>
-struct LocalMktDate :public immutable_::LocalMktDate
-{
-};
+struct LocalMktDate :public immutable_::LocalMktDate {};
 
 template <> 
-struct LocalMktDate <true> : public mutable_::LocalMktDate
-{
-};
+struct LocalMktDate <true> : public mutable_::LocalMktDate {};
 
 template <is_mutable, size_t Size>
-struct String : public immutable_::String<Size>
-{
-};
+struct String : public immutable_::String<Size> {};
 
 template <size_t Size> 
-struct String <true, Size> : public mutable_::String<Size>
-{
-};
+struct String <true, Size> : public mutable_::String<Size> {};
 
 } // namespace binary END
 } // namespace szse END

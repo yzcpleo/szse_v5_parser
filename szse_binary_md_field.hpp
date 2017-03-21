@@ -16,63 +16,40 @@ namespace szse
 namespace binary
 {
 
-// @Class:   MsgHeader
-// @Author:  cao.ning
-// @Date:    2017/02/21
-// @Brief:
-template <is_mutable b>
-class MsgHeader : public Field<b>
-{
-public:
-    TypeInt<uint32_t> MsgType;      // 消息类型
-    TypeInt<uint32_t> BodyLength;   // 消息体长度
-    // 
-    static size_t SSize()
-    {
-        static size_t ssize = TypeInt<uint32_t>::mem_size() * 2;
-        return ssize;
-    }
-    virtual uint32_t Type() const { return 0; }
-    virtual uint32_t Size() const { return SSize(); }
-    virtual bool Load(const char* mem_addr, size_t mem_size) override
-    {
-        return load_from_memory(mem_addr, mem_size, MsgType, BodyLength);
-    }
-    virtual bool Write(char* mem_addr, size_t mem_size) override
-    {
-        return write_into_memory(mem_addr, mem_size, MsgType, BodyLength);
-    }
-};
-
 
 // 登录消息 Logon
 template <is_mutable b>
 class Logon : public Field<b>
 {
 public:
-    static const uint32_t TypeID = 1;
+    static const uint32_t kMsgType = 1;
 
     TypeCompID          SenderCompID;           // 发送方代码
     TypeCompID          TargetCompID;           // 接收方代码
     TypeInt<int32_t>    HeartBtInt;             // 心跳间隔，单位是秒
     TypeString<16>      Password;               // 密码
     TypeString<32>      DefaultApplVerID;       // 二进制协议版本，填写为 n.xy
+
 public:
-    virtual uint32_t Type() const override { return TypeID; }
+    virtual uint32_t MsgType() const override { return kMsgType; }
     virtual uint32_t Size() const override
     {
         return byte_size_sum(SenderCompID, TargetCompID, HeartBtInt,
-            Password, DefaultApplVerID);
+                             Password, DefaultApplVerID);
     }
     virtual bool Load(const char* mem_addr, size_t mem_size) override
     {
-        return load_from_memory(mem_addr, mem_size, SenderCompID, TargetCompID,
-            HeartBtInt, Password, DefaultApplVerID);
+        return load_from_memory(&mem_addr, &mem_size,
+                                SenderCompID, TargetCompID,
+                                HeartBtInt, Password,
+                                DefaultApplVerID);
     }
     virtual bool Write(char* mem_addr, size_t mem_size) override
     {
-        return write_into_memory(mem_addr, mem_size, SenderCompID, TargetCompID,
-            HeartBtInt, Password, DefaultApplVerID);
+        return write_into_memory(&mem_addr, &mem_size,
+                                 SenderCompID, TargetCompID,
+                                 HeartBtInt, Password,
+                                 DefaultApplVerID);
     }
 };
 
@@ -81,23 +58,23 @@ template <is_mutable b>
 class Logout : public Field<b>
 {
 public:
-    static const uint32_t TypeID = 2;
- 
+    static const uint32_t kMsgType = 2;
+
     TypeInt<int32_t>    SessionStatus;          // 退出时的会话状态
     TypeString<200>     Text;                   // 注销原因的进一步补充说明
 public:
-    virtual uint32_t Type() const override { return TypeID; }
+    virtual uint32_t MsgType() const override { return kMsgType; }
     virtual uint32_t Size() const override
     {
         return byte_size_sum(SessionStatus, Text);
     }
     virtual bool Load(const char* mem_addr, size_t mem_size) override
     {
-        return load_from_memory(mem_addr, mem_size, SessionStatus, Text);
+        return load_from_memory(&mem_addr, &mem_size, SessionStatus, Text);
     }
     virtual bool Write(char* mem_addr, size_t mem_size) override
     {
-        return write_into_memory(mem_addr, mem_size, SessionStatus, Text);
+        return write_into_memory(&mem_addr, &mem_size, SessionStatus, Text);
     }
 };
 
@@ -106,9 +83,9 @@ template <is_mutable b>
 class Heartbeat : public Field<b>
 {
 public:
-    static const uint32_t TypeID = 3;
+    static const uint32_t kMsgType = 3;
 public:
-    virtual uint32_t Type() const override { return TypeID; }
+    virtual uint32_t MsgType() const override { return kMsgType; }
     virtual uint32_t Size() const override { return 0; }
     virtual bool Load(const char*, size_t) override { return true; }
     virtual bool Write(char*, size_t) override { return true; }
@@ -119,7 +96,7 @@ template <is_mutable b>
 class BusinessReject : public Field<b>
 {
 public:
-    static const uint32_t TypeID = 8;
+    static const uint32_t kMsgType = 8;
 
     TypeSeqNum              RefSeqNum;              // 被拒绝消息的消息序号
     TypeInt<uint32_t>       RefMsgType;             // 被拒绝的消息类型
@@ -127,21 +104,23 @@ public:
     TypeInt<uint16_t>       BusinessRejectReason;   // 拒绝原因
     TypeString<50>          BusinessRejectText;     // 拒绝原因说明
 public:
-    virtual uint32_t Type() const override { return TypeID; }
+    virtual uint32_t MsgType() const override { return kMsgType; }
     virtual uint32_t Size() const override
     {
         return byte_size_sum(RefSeqNum, RefMsgType, BusinessRejectRefID,
-            BusinessRejectReason, BusinessRejectText);
+                             BusinessRejectReason, BusinessRejectText);
     }
     virtual bool Load(const char* mem_addr, size_t mem_size) override
     {
-        return load_from_memory(mem_addr, mem_size, RefSeqNum, RefMsgType,
-            BusinessRejectRefID, BusinessRejectReason, BusinessRejectText);
+        return load_from_memory(&mem_addr, &mem_size,
+                                RefSeqNum, RefMsgType, BusinessRejectRefID,
+                                BusinessRejectReason, BusinessRejectText);
     }
     virtual bool Write(char* mem_addr, size_t mem_size) override
     {
-        return write_into_memory(mem_addr, mem_size, RefSeqNum, RefMsgType,
-            BusinessRejectRefID, BusinessRejectReason, BusinessRejectText);
+        return write_into_memory(&mem_addr, &mem_size,
+                                 RefSeqNum, RefMsgType, BusinessRejectRefID,
+                                 BusinessRejectReason, BusinessRejectText);
     }
 };
 
@@ -150,26 +129,26 @@ template <is_mutable b>
 class ChannelHeartbeat : public Field<b>
 {
 public:
-    static const uint32_t TypeID = 390095;
+    static const uint32_t kMsgType = 390095;
 
     TypeInt<uint16_t>    ChannelNo;          // 频道代码
     TypeSeqNum          ApplLastSeqNum;     // 最后一条行情消息的记录号
     TypeBoolean         EndOfChannel;       // 频道结束标志
 public:
-    virtual uint32_t Type() const override { return TypeID; }
+    virtual uint32_t MsgType() const override { return kMsgType; }
     virtual uint32_t Size() const override
     {
         return byte_size_sum(ChannelNo, ApplLastSeqNum, EndOfChannel);
     }
     virtual bool Load(const char* mem_addr, size_t mem_size) override
     {
-        return load_from_memory(mem_addr, mem_size,
-            ChannelNo, ApplLastSeqNum, EndOfChannel);
+        return load_from_memory(&mem_addr, &mem_size,
+                                ChannelNo, ApplLastSeqNum, EndOfChannel);
     }
     virtual bool Write(char* mem_addr, size_t mem_size) override
     {
-        return write_into_memory(mem_addr, mem_size,
-            ChannelNo, ApplLastSeqNum, EndOfChannel);
+        return write_into_memory(&mem_addr, &mem_size,
+                                 ChannelNo, ApplLastSeqNum, EndOfChannel);
     }
 };
 
@@ -178,7 +157,7 @@ template <is_mutable b>
 class Announcement : public Field<b>
 {
 public:
-    static const uint32_t TypeID = 390012;
+    static const uint32_t kMsgType = 390012;
 
     TypeLocalTimeStamp      OrigTime;          // 公告时间
     TypeInt<uint16_t>       ChannelNo;         // 频道代码
@@ -188,16 +167,16 @@ public:
     TypeLength              RawDataLength;     // 二进制数据长度
     const char*             RawData;           // 二进制数据（变长）
 public:
-    virtual uint32_t Type() const override { return TypeID; }
+    virtual uint32_t MsgType() const override { return kMsgType; }
     virtual uint32_t Size() const override
     {
         return byte_size_sum(OrigTime, ChannelNo, NewsID, Headline,
-            RawDataFormat, RawDataLength)
-            + RawDataLength.get_value();
+                             RawDataFormat, RawDataLength)
+                             + RawDataLength.get_value();
     }
     virtual bool Load(const char* mem_addr, size_t mem_size) override
     {
-        if (load_from_memory(mem_addr, mem_size, OrigTime, ChannelNo,
+        if (load_from_memory(&mem_addr, &mem_size, OrigTime, ChannelNo,
             NewsID, Headline, RawDataFormat, RawDataLength))
         {
             RawData = static_cast<const char*>(mem_addr);
@@ -207,7 +186,7 @@ public:
     }
     virtual bool Write(char* mem_addr, size_t mem_size) override
     {
-        if (write_into_memory(mem_addr, mem_size, OrigTime, ChannelNo,
+        if (write_into_memory(&mem_addr, &mem_size, OrigTime, ChannelNo,
             NewsID, Headline, RawDataFormat, RawDataLength))
         {
             if (RawDataLength.get_value() >= mem_size)
@@ -225,31 +204,35 @@ template <is_mutable b>
 class ReTransmit : public Field<b>
 {
 public:
-    static const uint32_t TypeID = 390094;
+    static const uint32_t kMsgType = 390094;
 
-    TypeInt<uint8_t>    ResendType;         // 重传种类
-    TypeInt<uint16_t>   ChannelNo;          // 频道代码
-    TypeSeqNum          ApplBegSeqNum;      // 起始序号
-    TypeSeqNum          ApplEndSeqNum;      // 结束序号
+    TypeInt<uint8_t>     ResendType;        // 重传种类
+    TypeInt<uint16_t>    ChannelNo;         // 频道代码
+    TypeSeqNum           ApplBegSeqNum;     // 起始序号
+    TypeSeqNum           ApplEndSeqNum;     // 结束序号
     TypeString<8>        NewsID;            // 公告唯一标识
     TypeInt<uint8_t>     ResendStatus;      // 重传状态
     TypeString<16>       RejectText;        // 文本
 public:
-    virtual uint32_t Type() const override { return TypeID; }
+    virtual uint32_t MsgType() const override { return kMsgType; }
     virtual uint32_t Size() const override
     {
         return byte_size_sum(ResendType, ChannelNo, ApplBegSeqNum,
-            ApplEndSeqNum, NewsID, ResendStatus, RejectText);
+                             ApplEndSeqNum, NewsID, ResendStatus, RejectText);
     }
     virtual bool Load(const char* mem_addr, size_t mem_size) override
     {
-        return load_from_memory(mem_addr, mem_size, ResendType, ChannelNo,
-            ApplBegSeqNum, ApplEndSeqNum, NewsID, ResendStatus, RejectText);
+        return load_from_memory(&mem_addr, &mem_size,
+                                ResendType, ChannelNo, ApplBegSeqNum,
+                                ApplEndSeqNum, NewsID, ResendStatus,
+                                RejectText);
     }
     virtual bool Write(char* mem_addr, size_t mem_size) override
     {
-        return write_into_memory(mem_addr, mem_size, ResendType, ChannelNo,
-            ApplBegSeqNum, ApplEndSeqNum, NewsID, ResendStatus, RejectText);
+        return write_into_memory(&mem_addr, &mem_size,
+                                 ResendType, ChannelNo, ApplBegSeqNum,
+                                 ApplEndSeqNum, NewsID, ResendStatus,
+                                 RejectText);
     }
 };
 
@@ -258,7 +241,7 @@ template <is_mutable b>
 class MarketStatus : public Field<b>
 {
 public:
-    static const uint32_t TypeID = 390019;
+    static const uint32_t kMsgType = 390019;
 
     TypeLocalTimeStamp      OrigTime;            // 数据生成时间
     TypeInt<uint16_t>       ChannelNo;           // 频道代码
@@ -270,30 +253,32 @@ public:
     TypeLocalTimeStamp      TradSesStartTime;    // 交易会话起始时间，预留
     TypeLocalTimeStamp      TradSesEndTime;      // 交易会话结束时间，预留
     TypeAmt                 ThresholdAmount;     // 每日初始额度
-    TypeAmt                 PosAmt;              // 日中剩余额度，额度不可用时，发布固定值 0.0000
+    TypeAmt                 PosAmt;              // 日中剩余额度，额度不可用时
     TypeString<1>           AmountStatus;        // 额度状态
 public:
-    virtual uint32_t Type() const override { return TypeID; }
+    virtual uint32_t MsgType() const override { return kMsgType; }
     virtual uint32_t Size() const override
     {
         return byte_size_sum(OrigTime, ChannelNo, MarketID, MarketSegmentID,
-            TradingSessionID, TradingSessionSubID, TradSesStatus,
-            TradSesStartTime, TradSesEndTime, ThresholdAmount, PosAmt,
-            AmountStatus);
+                             TradingSessionID, TradingSessionSubID,
+                             TradSesStatus, TradSesStartTime, TradSesEndTime,
+                             ThresholdAmount, PosAmt, AmountStatus);
     }
     virtual bool Load(const char* mem_addr, size_t mem_size) override
     {
-        return load_from_memory(mem_addr, mem_size, OrigTime, ChannelNo,
-            MarketID, MarketSegmentID, TradingSessionID, TradingSessionSubID,
-            TradSesStatus, TradSesStartTime, TradSesEndTime, ThresholdAmount,
-            PosAmt, AmountStatus);
+        return load_from_memory(&mem_addr, &mem_size, 
+                                OrigTime, ChannelNo, MarketID, MarketSegmentID,
+                                TradingSessionID, TradingSessionSubID,
+                                TradSesStatus, TradSesStartTime, TradSesEndTime,
+                                ThresholdAmount, PosAmt, AmountStatus);
     }
     virtual bool Write(char* mem_addr, size_t mem_size) override
     {
-        return write_into_memory(mem_addr, mem_size, OrigTime, ChannelNo,
-            MarketID, MarketSegmentID, TradingSessionID, TradingSessionSubID,
-            TradSesStatus, TradSesStartTime, TradSesEndTime, ThresholdAmount,
-            PosAmt, AmountStatus);
+        return write_into_memory(&mem_addr, &mem_size, 
+                                 OrigTime, ChannelNo, MarketID, MarketSegmentID,
+                                 TradingSessionID, TradingSessionSubID,
+                                 TradSesStatus, TradSesStartTime, TradSesEndTime,
+                                 ThresholdAmount, PosAmt, AmountStatus);
     }
 };
 
@@ -302,7 +287,7 @@ template <is_mutable b>
 class SecurityStatus : public Field<b>
 {
 public:
-    static const uint32_t TypeID = 390013;
+    static const uint32_t kMsgType = 390013;
 
     TypeLocalTimeStamp      OrigTime;          // 数据生成时间
     TypeInt<uint16_t>       ChannelNo;         // 频道代码
@@ -320,35 +305,38 @@ public:
         }
         virtual bool Load(const char* mem_addr, size_t mem_size) override
         {
-            return load_from_memory(mem_addr, mem_size,
-                SecuritySwitchType, SecuritySwitchStatus);
+            return load_from_memory(&mem_addr, &mem_size,
+                                    SecuritySwitchType, SecuritySwitchStatus);
         }
         virtual bool Write(char* mem_addr, size_t mem_size) override
         {
-            return write_into_memory(mem_addr, mem_size,
-                SecuritySwitchType, SecuritySwitchStatus);
+            return write_into_memory(&mem_addr, &mem_size,
+                                     SecuritySwitchType, SecuritySwitchStatus);
         }
     };
     TypeFieldArray<SecuritySwitch>      SecuritySwitchArray; // 开关数组
 public:
-    virtual uint32_t Type() const override { return TypeID; }
+    virtual uint32_t MsgType() const override { return kMsgType; }
     virtual uint32_t Size() const override
     {
         return byte_size_sum(OrigTime, ChannelNo, SecurityID, SecurityIDSource,
-            FinancialStatus, NoSwitch)
-            + SecuritySwitchArray.Size();
+                             FinancialStatus, NoSwitch)
+                + SecuritySwitchArray.Size();
     }
     virtual bool Load(const char* mem_addr, size_t mem_size) override
     {
-        return load_from_memory(mem_addr, mem_size, OrigTime, ChannelNo,
-            SecurityID, SecurityIDSource, FinancialStatus, NoSwitch)
-            && SecuritySwitchArray.Load(mem_addr, mem_size, NoSwitch.get_value());
+        return load_from_memory(&mem_addr, &mem_size,
+                                OrigTime, ChannelNo, SecurityID,
+                                SecurityIDSource, FinancialStatus, NoSwitch)
+                && SecuritySwitchArray.load(&mem_addr, &mem_size, 
+                                            NoSwitch.get_value());
     }
     virtual bool Write(char* mem_addr, size_t mem_size) override
     {
-        return write_into_memory(mem_addr, mem_size, OrigTime, ChannelNo,
-            SecurityID, SecurityIDSource, FinancialStatus, NoSwitch)
-            && SecuritySwitchArray.Write(mem_addr, mem_size);
+        return write_into_memory(&mem_addr, &mem_size,
+                                 OrigTime, ChannelNo, SecurityID, 
+                                 SecurityIDSource, FinancialStatus, NoSwitch)
+                && SecuritySwitchArray.write(&mem_addr, &mem_size);
     }
 };
 
@@ -357,7 +345,7 @@ template <is_mutable b>
 class MarketSnapshotStatistic : public Field<b>
 {
 public:
-    static const uint32_t TypeID = 390090;
+    static const uint32_t kMsgType = 390090;
     TypeLocalTimeStamp      OrigTime;           // 数据生成时间
     TypeInt<uint16_t>       ChannelNo;          // 频道代码
     TypeNumInGroup          NoMDStreamID;       // 行情类别个数
@@ -365,41 +353,42 @@ public:
     {
         TypeString<3>           MDStreamID;         // 行情类别
         TypeInt<uint32_t>       StockNum;           // 证券只数
-        TypeString<8>           TradingPhaseCode;   // 闭市状态，第 0 位：T=连续竞价；E=已闭市
+        TypeString<8>           TradingPhaseCode;   // 闭市状态
         virtual uint32_t Size() const override
         {
             return byte_size_sum(MDStreamID, StockNum, TradingPhaseCode);
         }
         virtual bool Load(const char* mem_addr, size_t mem_size) override
         {
-            return load_from_memory(mem_addr, mem_size, MDStreamID, StockNum,
-                TradingPhaseCode);
+            return load_from_memory(&mem_addr, &mem_size,
+                                    MDStreamID, StockNum, TradingPhaseCode);
         }
         virtual bool Write(char* mem_addr, size_t mem_size) override
         {
-            return write_into_memory(mem_addr, mem_size, MDStreamID, StockNum,
-                TradingPhaseCode);
+            return write_into_memory(&mem_addr, &mem_size, 
+                                     MDStreamID, StockNum, TradingPhaseCode);
         }
     };
     TypeFieldArray<StreamStatistic>    StatisticArray; // 统计数组
 public:
-    virtual uint32_t Type() const override { return TypeID; }
+    virtual uint32_t MsgType() const override { return kMsgType; }
     virtual uint32_t Size() const override
     {
         return byte_size_sum(OrigTime, ChannelNo, NoMDStreamID)
-            + StatisticArray.Size();
+                + StatisticArray.Size();
     }
     virtual bool Load(const char* mem_addr, size_t mem_size) override
     {
-        return load_from_memory(mem_addr, mem_size, OrigTime, ChannelNo,
-            NoMDStreamID)
-            && StatisticArray.Load(mem_addr, mem_size, NoMDStreamID.get_value());
+        return load_from_memory(&mem_addr, &mem_size,
+                                OrigTime, ChannelNo, NoMDStreamID)
+                && StatisticArray.load(&mem_addr, &mem_size,
+                                        NoMDStreamID.get_value());
     }
     virtual bool Write(char* mem_addr, size_t mem_size) override
     {
-        return write_into_memory(mem_addr, mem_size, OrigTime, ChannelNo,
-            NoMDStreamID)
-            && StatisticArray.Write(mem_addr, mem_size);
+        return write_into_memory(&mem_addr, &mem_size, 
+                                 OrigTime, ChannelNo, NoMDStreamID)
+                && StatisticArray.write(&mem_addr, &mem_size);
     }
 };
 
@@ -418,33 +407,11 @@ public:
     TypeInt<int64_t>        NumTrades;          // 成交笔数
     TypeQty                 TotalVolumeTrade;   // 成交总量
     TypeAmt                 TotalValueTrade;    // 成交总金额
-    virtual uint32_t Size() const override
-    {
-        return byte_size_sum(OrigTime, ChannelNo, MDStreamID, SecurityID,
-            SecurityIDSource, TradingPhaseCode, PrevClosePx,
-            NumTrades, TotalVolumeTrade, TotalValueTrade);
-    }
-    virtual bool Load(const char* mem_addr, size_t mem_size) override
-    {
-        mem_head_ = mem_tail_ = mem_addr;
-        return load_from_memory(mem_tail_, mem_size, OrigTime,
-            ChannelNo, MDStreamID, SecurityID, SecurityIDSource,
-            TradingPhaseCode, PrevClosePx, NumTrades, TotalVolumeTrade,
-            TotalValueTrade);
-    }
-    virtual bool Write(char* mem_addr, size_t mem_size) override
-    {
-        mem_head_ = mem_tail_ = mem_addr;
-        return write_into_memory((char*&)mem_tail_, mem_size, OrigTime, ChannelNo,
-            MDStreamID, SecurityID, SecurityIDSource, TradingPhaseCode,
-            PrevClosePx, NumTrades, TotalVolumeTrade, TotalValueTrade);
-    }
-protected:
-    // 记录首部和尾部指针，在Load和Write时更新，为方便子类执行后续的Load和Write过程
-    // 若在此之前执行了Load，则head和tail指向读取内存的首部和内存的尾部
-    // 若在此之前执行了Write，则指向的是写入内存的首部和尾部
-    const char* mem_head_;
-    const char* mem_tail_;
+ 
+#define MarketSnapshotBase_MemberList       \
+OrigTime, ChannelNo, MDStreamID, SecurityID, SecurityIDSource, \
+TradingPhaseCode, PrevClosePx, NumTrades, TotalVolumeTrade, TotalValueTrade
+
 };
 
 // 集中竞价交易业务行情快照 MarketSnapshot_300111
@@ -457,82 +424,80 @@ class MarketSnapshot_300111 : public MarketSnapshotBase<b>
 {
     typedef MarketSnapshotBase<b> base_type;
 public:
-    static const uint32_t TypeID = 300111;
+    static const uint32_t kMsgType = 300111;
 public:
     // Extend Fields 业务扩展字段
     TypeNumInGroup          NoMDEntries;            // 行情条目个数
+    // struct SecurityEntry
     struct SecurityEntry : public Field<b>
     {
         TypeString<2>           MDEntryType;     // 行情条目类别
         TypeInt<int64_t>        MDEntryPx;       // 价格，乘数1000000
         TypeQty                 MDEntrySize;     // 数量
         TypeInt<uint16_t>       MDPriceLevel;    // 买卖盘档位
-        TypeInt<int64_t>        NumberOfOrders;  // 价位总委托笔数，为 0 表示不揭示
-        TypeNumInGroup          NoOrders;        // 价位揭示委托笔数，为 0 表示不揭示
+        TypeInt<int64_t>        NumberOfOrders;  // 价位总委托笔数
+        TypeNumInGroup          NoOrders;        // 价位揭示委托笔数
+        // struct OrderQty
         struct OrderQty : public Field<b>
         {
             TypeQty             Qty;
-            virtual uint32_t Size() const override { return TypeQty::mem_size(); }
+            virtual uint32_t Size() const override
+            {
+                return TypeQty::mem_size();
+            }
             virtual bool Load(const char* mem_addr, size_t mem_size) override
             {
-                return load_from_memory(mem_addr, mem_size, Qty);
+                return load_from_memory(&mem_addr, &mem_size, Qty);
             }
             virtual bool Write(char* mem_addr, size_t mem_size) override
             {
-                return write_into_memory(mem_addr, mem_size, Qty);
+                return write_into_memory(&mem_addr, &mem_size, Qty);
             }
         };
         TypeFieldArray<OrderQty>       OrderQtyArray;        // 委托数量
         uint32_t Size() const override
         {
             return byte_size_sum(MDEntryType, MDEntryPx, MDEntrySize,
-                MDPriceLevel, NumberOfOrders, NoOrders)
-                + OrderQtyArray.Size();
+                                 MDPriceLevel, NumberOfOrders, NoOrders)
+                    + OrderQtyArray.Size();
         }
         bool Load(const char* mem_addr, size_t mem_size) override
         {
-            return load_from_memory(mem_addr, mem_size, MDEntryType,
-                MDEntryPx, MDEntrySize, MDPriceLevel, NumberOfOrders,
-                NoOrders)
-                && OrderQtyArray.Load(mem_addr, mem_size, NoOrders.get_value());
+            return load_from_memory(&mem_addr, &mem_size,
+                                    MDEntryType, MDEntryPx, MDEntrySize, 
+                                    MDPriceLevel, NumberOfOrders, NoOrders)
+                    && OrderQtyArray.load(&mem_addr, &mem_size,
+                                            NoOrders.get_value());
         }
         bool Write(char* mem_addr, size_t mem_size) override
         {
-            return write_into_memory(mem_addr, mem_size, MDEntryType,
-                MDEntryPx, MDEntrySize, MDPriceLevel, NumberOfOrders,
-                NoOrders) && OrderQtyArray.Write(mem_addr, mem_size);
+            return write_into_memory(&mem_addr, &mem_size,
+                                     MDEntryType, MDEntryPx, MDEntrySize,
+                                     MDPriceLevel, NumberOfOrders, NoOrders)
+                    && OrderQtyArray.write(&mem_addr, &mem_size);
         }
     };
-    TypeFieldArray<SecurityEntry> SecurityEntryArray;     // 集中竞价交易业务行情快照扩展字段
+    // 集中竞价交易业务行情快照扩展字段
+    TypeFieldArray<SecurityEntry> SecurityEntryArray;
 public:
-    virtual uint32_t Type() const override { return TypeID; }
+    virtual uint32_t MsgType() const override { return kMsgType; }
     virtual uint32_t Size() const override
     {
-        return base_type::Size() + NoMDEntries.mem_size() + SecurityEntryArray.Size();
+        return byte_size_sum(MarketSnapshotBase_MemberList, NoMDEntries)
+            + SecurityEntryArray.Size();
     }
     virtual bool Load(const char* mem_addr, size_t mem_size) override
     {
-        if (base_type::Load(mem_addr, mem_size))
-        {
-            size_t base_type_size = base_type::mem_tail_ - base_type::mem_head_;
-            mem_addr += base_type_size;
-            mem_size -= base_type_size;
-            return load_from_memory(mem_addr, mem_size, NoMDEntries)
-                && SecurityEntryArray.Load(mem_addr, mem_size, NoMDEntries.get_value());
-        }
-        return false;
+        return load_from_memory(&mem_addr, &mem_size,
+                                MarketSnapshotBase_MemberList, NoMDEntries)
+            && SecurityEntryArray.load(&mem_addr, &mem_size,
+                                        NoMDEntries.get_value());
     }
     virtual bool Write(char* mem_addr, size_t mem_size) override
     {
-        if (base_type::Write(mem_addr, mem_size))
-        {
-            size_t base_type_size = base_type::mem_tail_ - base_type::mem_head_;
-            mem_addr += base_type_size;
-            mem_size -= base_type_size;
-            return write_into_memory(mem_addr, mem_size, NoMDEntries)
-                && SecurityEntryArray.Write(mem_addr, mem_size);
-        }
-        return false;
+        return write_into_memory(&mem_addr, &mem_size,
+                                 MarketSnapshotBase_MemberList, NoMDEntries)
+            && SecurityEntryArray.write(&mem_addr, &mem_size);
     }
 };
 
@@ -545,7 +510,7 @@ class MarketSnapshot_300611 : public MarketSnapshotBase<b>
 {
     typedef MarketSnapshotBase<b> base_type;
 public:
-    static const uint32_t TypeID = 300611;
+    static const uint32_t kMsgType = 300611;
 public:
     // Extend Fields 各业务扩展字段
     TypeNumInGroup   NoMDEntries;            // 行情条目个数
@@ -560,45 +525,36 @@ public:
         }
         virtual bool Load(const char* mem_addr, size_t mem_size) override
         {
-            return load_from_memory(mem_addr, mem_size,
-                MDEntryType, MDEntryPx, MDEntrySize);
+            return load_from_memory(&mem_addr, &mem_size,
+                                    MDEntryType, MDEntryPx, MDEntrySize);
         }
         virtual bool Write(char* mem_addr, size_t mem_size) override
         {
-            return write_into_memory(mem_addr, mem_size,
-                MDEntryType, MDEntryPx, MDEntrySize);
+            return write_into_memory(&mem_addr, &mem_size,
+                                     MDEntryType, MDEntryPx, MDEntrySize);
         }
     };
-    TypeFieldArray<SecurityEntry> SecurityEntryArray;     // 集中竞价交易业务行情快照扩展字段
+    // 集中竞价交易业务行情快照扩展字段
+    TypeFieldArray<SecurityEntry> SecurityEntryArray;     
 public:
-    virtual uint32_t Type() const override { return TypeID; }
+    virtual uint32_t MsgType() const override { return kMsgType; }
     virtual uint32_t Size() const override
     {
-        return base_type::Size() + NoMDEntries.mem_size() + SecurityEntryArray.Size();
+        return byte_size_sum(MarketSnapshotBase_MemberList, NoMDEntries)
+            + SecurityEntryArray.Size();
     }
     virtual bool Load(const char* mem_addr, size_t mem_size) override
     {
-        if (base_type::Load(mem_addr, mem_size))
-        {
-            size_t base_type_size = base_type::mem_tail_ - base_type::mem_head_;
-            mem_addr += base_type_size;
-            mem_size -= base_type_size;
-            return load_from_memory(mem_addr, mem_size, NoMDEntries)
-                && SecurityEntryArray.Load(mem_addr, mem_size, NoMDEntries.get_value());
-        }
-        return false;
+        return load_from_memory(&mem_addr, &mem_size,
+                                MarketSnapshotBase_MemberList, NoMDEntries)
+            && SecurityEntryArray.load(&mem_addr, &mem_size,
+                                        NoMDEntries.get_value());
     }
     virtual bool Write(char* mem_addr, size_t mem_size) override
     {
-        if (base_type::Write(mem_addr, mem_size))
-        {
-            size_t base_type_size = base_type::mem_tail_ - base_type::mem_head_;
-            mem_addr += base_type_size;
-            mem_size -= base_type_size;
-            return write_into_memory(mem_addr, mem_size, NoMDEntries)
-                && SecurityEntryArray.Write(mem_addr, mem_size);
-        }
-        return false;
+        return write_into_memory(&mem_addr, &mem_size,
+                                 MarketSnapshotBase_MemberList, NoMDEntries)
+            && SecurityEntryArray.write(&mem_addr, &mem_size);
     }
 };
 
@@ -609,7 +565,7 @@ class MarketSnapshot_306311 : public MarketSnapshotBase<b>
 {
     typedef MarketSnapshotBase<b> base_type;
 public:
-    static const uint32_t TypeID = 306311;
+    static const uint32_t kMsgType = 306311;
 public:
     // Extend Fields 各业务扩展字段
     TypeNumInGroup   NoMDEntries;            // 行情条目个数
@@ -621,21 +577,24 @@ public:
         TypeInt<uint16_t>       MDPriceLevel;    // 买卖盘档位
         virtual uint32_t Size() const override
         {
-            return byte_size_sum(MDEntryType, MDEntryPx, MDEntrySize, MDPriceLevel);
+            return byte_size_sum(MDEntryType, MDEntryPx,
+                                 MDEntrySize, MDPriceLevel);
         }
         virtual bool Load(const char* mem_addr, size_t mem_size) override
         {
-            return load_from_memory(mem_addr, mem_size,
-                MDEntryType, MDEntryPx, MDEntrySize, MDPriceLevel);
+            return load_from_memory(&mem_addr, &mem_size,
+                                    MDEntryType, MDEntryPx,
+                                    MDEntrySize, MDPriceLevel);
         }
         virtual bool Write(char* mem_addr, size_t mem_size) override
         {
-            return write_into_memory(mem_addr, mem_size,
-                MDEntryType, MDEntryPx, MDEntrySize, MDPriceLevel);
+            return write_into_memory(&mem_addr, &mem_size,
+                                     MDEntryType, MDEntryPx,
+                                     MDEntrySize, MDPriceLevel);
         }
     };
     TypeFieldArray<HKMarketEntry>   HKMarketEntryArray;
-    
+
     TypeNumInGroup      NoComplexEventTimes;    // VCM冷静期个数
     struct ComplexEvent : public Field<b>
     {
@@ -647,65 +606,44 @@ public:
         }
         virtual bool Load(const char* mem_addr, size_t mem_size) override
         {
-            return load_from_memory(mem_addr, mem_size,
-                ComplexEventStartTime, ComplexEventEndTime);
+            return load_from_memory(&mem_addr, &mem_size,
+                                    ComplexEventStartTime,
+                                    ComplexEventEndTime);
         }
         virtual bool Write(char* mem_addr, size_t mem_size) override
         {
-            return write_into_memory(mem_addr, mem_size,
-                ComplexEventStartTime, ComplexEventEndTime);
+            return write_into_memory(&mem_addr, &mem_size,
+                                     ComplexEventStartTime,
+                                     ComplexEventEndTime);
         }
     };
     TypeFieldArray<ComplexEvent>    ComplexEventArray;
 public:
-    virtual uint32_t Type() const override { return TypeID; }
+    virtual uint32_t MsgType() const override { return kMsgType; }
     virtual uint32_t Size() const override
     {
-        return base_type::Size()
-            + NoMDEntries.mem_size() + HKMarketEntryArray.Size()
-            + NoComplexEventTimes.mem_size() + ComplexEventArray.Size();
+        return byte_size_sum(MarketSnapshotBase_MemberList, NoMDEntries,
+                             NoComplexEventTimes)
+            + HKMarketEntryArray.Size() + ComplexEventArray.Size();
     }
     virtual bool Load(const char* mem_addr, size_t mem_size) override
     {
-        if (base_type::Load(mem_addr, mem_size))
-        {
-            size_t base_type_size = base_type::mem_tail_ - base_type::mem_head_;
-            size_t a2 = base_type::Size();
-            mem_addr += base_type_size;
-            mem_size -= base_type_size;
-            if (load_from_memory(mem_addr, mem_size, NoMDEntries)
-                && HKMarketEntryArray.Load(mem_addr, mem_size, NoMDEntries.get_value()))
-            {
-                size_t array_size = HKMarketEntryArray.Size();
-                // move
-                mem_addr += array_size;
-                mem_size -= array_size;
-                return load_from_memory(mem_addr, mem_size, NoComplexEventTimes)
-                    && ComplexEventArray.Load(mem_addr, mem_size, NoComplexEventTimes.get_value());
-            }
-        }
-        return false;
+        return load_from_memory(&mem_addr, &mem_size,
+                                MarketSnapshotBase_MemberList, NoMDEntries)
+            && HKMarketEntryArray.load(&mem_addr, &mem_size, 
+                                        NoMDEntries.get_value())
+            && load_from_memory(&mem_addr, &mem_size, NoComplexEventTimes)
+            && ComplexEventArray.load(&mem_addr, &mem_size,
+                                        NoComplexEventTimes.get_value());
+
     }
     virtual bool Write(char* mem_addr, size_t mem_size) override
     {
-        if (base_type::Write(mem_addr, mem_size))
-        {
-            size_t base_type_size = base_type::mem_tail_ - base_type::mem_head_;
-            mem_addr += base_type_size;
-            mem_size -= base_type_size;
-            if (write_into_memory(mem_addr, mem_size, NoMDEntries)
-                && HKMarketEntryArray.Write(mem_addr, mem_size))
-            {
-                size_t array_size = HKMarketEntryArray.Size();
-                // move
-                mem_addr += array_size;
-                mem_size -= array_size;
-                return write_into_memory(mem_addr, mem_size, NoComplexEventTimes)
-                    && ComplexEventArray.Write(mem_addr, mem_size);
-            }
-        }
-
-        return false;
+        return write_into_memory(&mem_addr, &mem_size,
+                                MarketSnapshotBase_MemberList, NoMDEntries)
+            && HKMarketEntryArray.write(&mem_addr, &mem_size)
+            && write_into_memory(&mem_addr, &mem_size, NoComplexEventTimes)
+            && ComplexEventArray.write(&mem_addr, &mem_size);
     }
 };
 
@@ -716,7 +654,7 @@ class MarketSnapshot_309011 : public MarketSnapshotBase<b>
 {
     typedef MarketSnapshotBase<b> base_type;
 public:
-    static const uint32_t TypeID = 309011;
+    static const uint32_t kMsgType = 309011;
 public:
     // Extend Fields 各业务扩展字段
     TypeNumInGroup   NoMDEntries;            // 行情条目个数
@@ -730,43 +668,33 @@ public:
         }
         virtual bool Load(const char* mem_addr, size_t mem_size) override
         {
-            return load_from_memory(mem_addr, mem_size, MDEntryType, MDEntryPx);
+            return load_from_memory(&mem_addr, &mem_size, MDEntryType, MDEntryPx);
         }
         virtual bool Write(char* mem_addr, size_t mem_size) override
         {
-            return write_into_memory(mem_addr, mem_size, MDEntryType, MDEntryPx);
+            return write_into_memory(&mem_addr, &mem_size, MDEntryType, MDEntryPx);
         }
     };
     TypeFieldArray<IndexEntry> IndexEntryArray;     // 集中竞价交易业务行情快照扩展字段
 public:
-    virtual uint32_t Type() const override { return TypeID; }
+    virtual uint32_t MsgType() const override { return kMsgType; }
     virtual uint32_t Size() const override
     {
-        return base_type::Size() + NoMDEntries.mem_size() + IndexEntryArray.Size();
+        return byte_size_sum(MarketSnapshotBase_MemberList, NoMDEntries)
+            + IndexEntryArray.Size();
     }
     virtual bool Load(const char* mem_addr, size_t mem_size) override
     {
-        if (base_type::Load(mem_addr, mem_size))
-        {
-            size_t base_type_size = base_type::mem_tail_ - base_type::mem_head_;
-            mem_addr += base_type_size;
-            mem_size -= base_type_size;
-            return load_from_memory(mem_addr, mem_size, NoMDEntries)
-                && IndexEntryArray.Load(mem_addr, mem_size, NoMDEntries.get_value());
-        }
-        return false;
+        return load_from_memory(&mem_addr, &mem_size,
+                                MarketSnapshotBase_MemberList, NoMDEntries)
+            && IndexEntryArray.load(&mem_addr, &mem_size,
+                                        NoMDEntries.get_value());
     }
     virtual bool Write(char* mem_addr, size_t mem_size) override
     {
-        if (base_type::Write(mem_addr, mem_size))
-        {
-            size_t base_type_size = base_type::mem_tail_ - base_type::mem_head_;
-            mem_addr += base_type_size;
-            mem_size -= base_type_size;
-            return write_into_memory(mem_addr, mem_size, NoMDEntries)
-                && IndexEntryArray.Write(mem_addr, mem_size);
-        }
-        return false;
+        return write_into_memory(&mem_addr, &mem_size,
+                                 MarketSnapshotBase_MemberList, NoMDEntries)
+            && IndexEntryArray.write(&mem_addr, &mem_size);
     }
 };
 
@@ -777,37 +705,25 @@ class MarketSnapshot_309111 : public MarketSnapshotBase<b>
 {
     typedef MarketSnapshotBase<b> base_type;
 public:
-    static const uint32_t TypeID = 309111;
+    static const uint32_t kMsgType = 309111;
 public:
     // Extend Fields 各业务扩展字段
     TypeInt<uint32_t>   StockNum;               // 统计量指标样本个数
 public:
-    virtual uint32_t Type() const override { return TypeID; }
+    virtual uint32_t MsgType() const override { return kMsgType; }
     virtual uint32_t Size() const override
     {
-        return base_type::Size() + StockNum.mem_size();
+        return byte_size_sum(MarketSnapshotBase_MemberList, StockNum);
     }
     virtual bool Load(const char* mem_addr, size_t mem_size) override
     {
-        if (base_type::Load(mem_addr, mem_size))
-        {
-            size_t base_type_size = base_type::mem_tail_ - base_type::mem_head_;
-            mem_addr += base_type_size;
-            mem_size -= base_type_size;
-            return load_from_memory(mem_addr, mem_size, StockNum);
-        }
-        return false;
+        return load_from_memory(&mem_addr, &mem_size,
+                                MarketSnapshotBase_MemberList, StockNum);
     }
     virtual bool Write(char* mem_addr, size_t mem_size) override
     {
-        if (base_type::Write(mem_addr, mem_size))
-        {
-            size_t base_type_size = base_type::mem_tail_ - base_type::mem_head_;
-            mem_addr += base_type_size;
-            mem_size -= base_type_size;
-            return write_into_memory(mem_addr, mem_size, StockNum);
-        }
-        return false;
+        return write_into_memory(&mem_addr, &mem_size,
+                                 MarketSnapshotBase_MemberList, StockNum);
     }
 };
 
@@ -825,28 +741,11 @@ public:
     TypeQty              OrderQty;           // 委托数量
     TypeString<1>           Side;               // 买卖方向：1=买；2 = 卖；G = 借入；F = 出借
     TypeLocalTimeStamp   OrderTime;          // 委托时间
-    virtual uint32_t Size() const override
-    {
-        return byte_size_sum(ChannelNo, ApplSeqNum, MDStreamID, SecurityID,
-            SecurityIDSource, Price, OrderQty, Side, OrderTime);
-    }
-    virtual bool Load(const char* mem_addr, size_t mem_size) override
-    {
-        mem_head_ = mem_tail_ = mem_addr;
-        return load_from_memory(mem_tail_, mem_size, ChannelNo, ApplSeqNum,
-            MDStreamID, SecurityID, SecurityIDSource, Price,
-            OrderQty, Side, OrderTime);
-    }
-    virtual bool Write(char* mem_addr, size_t mem_size) override
-    {
-        mem_head_ = mem_tail_ = mem_addr;
-        return write_into_memory((char*&)mem_tail_, mem_size, ChannelNo, ApplSeqNum,
-            MDStreamID, SecurityID, SecurityIDSource, Price,
-            OrderQty, Side, OrderTime);
-    }
-protected:
-    const char* mem_head_;
-    const char* mem_tail_;
+    
+#define OrderSnapshotBase_MemberList       \
+ChannelNo, ApplSeqNum, MDStreamID, SecurityID, SecurityIDSource, Price, \
+OrderQty, Side, OrderTime
+
 };
 
 // 集中竞价业务逐笔委托行情 OrderSnapshot_300192
@@ -858,37 +757,25 @@ class OrderSnapshot_300192 : public OrderSnapshotBase<b>
 {
     typedef OrderSnapshotBase<b> base_type;
 public:
-    static const uint32_t TypeID = 300192;
+    static const uint32_t kMsgType = 300192;
 public:
     // Extend Fields 各业务扩展字段
     TypeString<2>   OrdType;               // 订单类别：1 = 市价；2 = 限价；U = 本方最优
 public:
-    virtual uint32_t Type() const override { return TypeID; }
+    virtual uint32_t MsgType() const override { return kMsgType; }
     virtual uint32_t Size() const override
     {
-        return base_type::Size() + OrdType.mem_size();
+        return byte_size_sum(OrderSnapshotBase_MemberList, OrdType);
     }
     virtual bool Load(const char* mem_addr, size_t mem_size) override
     {
-        if (base_type::Load(mem_addr, mem_size))
-        {
-            size_t base_type_size = base_type::mem_tail_ - base_type::mem_head_;
-            mem_addr += base_type_size;
-            mem_size -= base_type_size;
-            return load_from_memory(mem_addr, mem_size, OrdType);
-        }
-        return false;
+        return load_from_memory(&mem_addr, &mem_size,
+                                OrderSnapshotBase_MemberList, OrdType);
     }
     virtual bool Write(char* mem_addr, size_t mem_size) override
     {
-        if (base_type::Write(mem_addr, mem_size))
-        {
-            size_t base_type_size = base_type::mem_tail_ - base_type::mem_head_;
-            mem_addr += base_type_size;
-            mem_size -= base_type_size;
-            return write_into_memory(mem_addr, mem_size, OrdType);
-        }
-        return false;
+        return write_into_memory(&mem_addr, &mem_size,
+                                 OrderSnapshotBase_MemberList, OrdType);
     }
 };
 
@@ -900,40 +787,30 @@ class OrderSnapshot_300592 : public OrderSnapshotBase<b>
 {
     typedef OrderSnapshotBase<b> base_type;
 public:
-    static const uint32_t TypeID = 300592;
+    static const uint32_t kMsgType = 300592;
 public:
     // Extend Fields 各业务扩展字段
     TypeString<8>   ConfirmID;          // 定价行情约定号，ConfirmID 为空表示是意向行情，否则为定价行情
     TypeString<12>  Contactor;          // 联系人
     TypeString<30>  ContactInfo;        // 联系方式
 public:
-    virtual uint32_t Type() const override { return TypeID; }
+    virtual uint32_t MsgType() const override { return kMsgType; }
     virtual uint32_t Size() const override
     {
-        return base_type::Size() + byte_size_sum(ConfirmID, Contactor, ContactInfo);
+        return byte_size_sum(OrderSnapshotBase_MemberList,
+                             ConfirmID, Contactor, ContactInfo);
     }
     virtual bool Load(const char* mem_addr, size_t mem_size) override
     {
-        if (base_type::Load(mem_addr, mem_size))
-        {
-            size_t base_type_size = base_type::mem_tail_ - base_type::mem_head_;
-            mem_addr += base_type_size;
-            mem_size -= base_type_size;
-            return load_from_memory(mem_addr, mem_size,
-                ConfirmID, Contactor, ContactInfo);
-        }
-        return false;
+        return load_from_memory(&mem_addr, &mem_size,
+                                OrderSnapshotBase_MemberList,
+                                ConfirmID, Contactor, ContactInfo);
     }
     virtual bool Write(char* mem_addr, size_t mem_size) override
     {
-        if (base_type::Write(mem_addr, mem_size))
-        {
-            size_t base_type_size = base_type::mem_tail_ - base_type::mem_head_;
-            mem_addr += base_type_size;
-            mem_size -= base_type_size;
-            return write_into_memory(mem_addr, mem_size, ConfirmID, Contactor, ContactInfo);
-        }
-        return false;
+        return write_into_memory(&mem_addr, &mem_size,
+                                 OrderSnapshotBase_MemberList,
+                                 ConfirmID, Contactor, ContactInfo);
     }
 };
 
@@ -944,38 +821,29 @@ class OrderSnapshot_300792 : public OrderSnapshotBase<b>
 {
     typedef OrderSnapshotBase<b> base_type;
 public:
-    static const uint32_t TypeID = 300792;
+    static const uint32_t kMsgType = 300792;
 public:
     // Extend Fields 各业务扩展字段
     TypeInt<uint16_t>   ExpirationDays;               // 期限，单位为天数
     TypeInt<uint8_t>    ExpirationType;               // 期限类型，1 = 固定期限
 public:
-    virtual uint32_t Type() const override { return TypeID; }
+    virtual uint32_t MsgType() const override { return kMsgType; }
     virtual uint32_t Size() const override
     {
-        return base_type::Size() + byte_size_sum(ExpirationDays, ExpirationType);
+        return byte_size_sum(OrderSnapshotBase_MemberList,
+                             ExpirationDays, ExpirationType);
     }
     virtual bool Load(const char* mem_addr, size_t mem_size) override
     {
-        if (base_type::Load(mem_addr, mem_size))
-        {
-            size_t base_type_size = base_type::mem_tail_ - base_type::mem_head_;
-            mem_addr += base_type_size;
-            mem_size -= base_type_size;
-            return load_from_memory(mem_addr, mem_size, ExpirationDays, ExpirationType);
-        }
-        return false;
+        return load_from_memory(&mem_addr, &mem_size,
+                                OrderSnapshotBase_MemberList, 
+                                ExpirationDays, ExpirationType);
     }
     virtual bool Write(char* mem_addr, size_t mem_size) override
     {
-        if (base_type::Write(mem_addr, mem_size))
-        {
-            size_t base_type_size = base_type::mem_tail_ - base_type::mem_head_;
-            mem_addr += base_type_size;
-            mem_size -= base_type_size;
-            return write_into_memory(mem_addr, mem_size, ExpirationDays, ExpirationType);
-        }
-        return false;
+        return write_into_memory(&mem_addr, &mem_size,
+                                 OrderSnapshotBase_MemberList,
+                                 ExpirationDays, ExpirationType);
     }
 };
 
@@ -985,33 +853,33 @@ class TransactionSnapshotBase : public Field<b>
 {
 public:
     TypeInt<uint16_t>       ChannelNo;          // 频道代码
-    TypeSeqNum           ApplSeqNum;         // 消息记录号，从 1 开始计数
+    TypeSeqNum              ApplSeqNum;         // 消息记录号，从 1 开始计数
     TypeString<3>           MDStreamID;         // 行情类别
-    TypeSeqNum           BidApplSeqNum;      // 买方委托索引，从 1 开始计数， 0 表示无对应委托
-    TypeSeqNum           OfferApplSeqNum;    // 卖方委托索引，从 1 开始计数， 0 表示无对应委托
-    TypeSecurityID       SecurityID;         // 证券代码
+    TypeSeqNum              BidApplSeqNum;      // 买方委托索引，从 1 开始计数， 0 表示无对应委托
+    TypeSeqNum              OfferApplSeqNum;    // 卖方委托索引，从 1 开始计数， 0 表示无对应委托
+    TypeSecurityID          SecurityID;         // 证券代码
     TypeString<4>           SecurityIDSource;   // 证券代码源
-    TypePrice            LastPx;             // 委托价格
-    TypeQty              LastQty;            // 委托数量
+    TypePrice               LastPx;             // 委托价格
+    TypeQty                 LastQty;            // 委托数量
     TypeString<1>           ExecType;           // 成交类别，4 = 撤销，F = 成交
-    TypeLocalTimeStamp   TransactTime;       // 委托时间
+    TypeLocalTimeStamp      TransactTime;       // 委托时间
     virtual uint32_t Size() const override
     {
         return byte_size_sum(ChannelNo, ApplSeqNum, MDStreamID, BidApplSeqNum,
-            OfferApplSeqNum, SecurityID, SecurityIDSource, LastPx, LastQty,
-            ExecType, TransactTime);
+                             OfferApplSeqNum, SecurityID, SecurityIDSource, LastPx, LastQty,
+                             ExecType, TransactTime);
     }
     virtual bool Load(const char* mem_addr, size_t mem_size) override
     {
-        return load_from_memory(mem_addr, mem_size, ChannelNo, ApplSeqNum,
-            MDStreamID, BidApplSeqNum, OfferApplSeqNum, SecurityID,
-            SecurityIDSource, LastPx, LastQty, ExecType, TransactTime);
+        return load_from_memory(&mem_addr, &mem_size, ChannelNo, ApplSeqNum,
+                                MDStreamID, BidApplSeqNum, OfferApplSeqNum, SecurityID,
+                                SecurityIDSource, LastPx, LastQty, ExecType, TransactTime);
     }
     virtual bool Write(char* mem_addr, size_t mem_size) override
     {
-        return write_into_memory(mem_addr, mem_size, ChannelNo, ApplSeqNum,
-            MDStreamID, BidApplSeqNum, OfferApplSeqNum, SecurityID,
-            SecurityIDSource, LastPx, LastQty, ExecType, TransactTime);
+        return write_into_memory(&mem_addr, &mem_size, ChannelNo, ApplSeqNum,
+                                 MDStreamID, BidApplSeqNum, OfferApplSeqNum, SecurityID,
+                                 SecurityIDSource, LastPx, LastQty, ExecType, TransactTime);
     }
 };
 
@@ -1024,12 +892,12 @@ class TransactionSnapshot_300191 : public TransactionSnapshotBase<b>
 {
     typedef TransactionSnapshotBase<b> base_type;
 public:
-    static const uint32_t TypeID = 300191;
+    static const uint32_t kMsgType = 300191;
 public:
     // Extend Fields 各业务扩展字段
     // 无扩展字段
 public:
-    virtual uint32_t Type() const override { return TypeID; }
+    virtual uint32_t MsgType() const override { return kMsgType; }
 };
 
 // 协议交易业务逐笔成交行情 TransactionSnapshot_300591
@@ -1040,12 +908,12 @@ class TransactionSnapshot_300591 : public TransactionSnapshotBase<b>
 {
     typedef TransactionSnapshotBase<b> base_type;
 public:
-    static const uint32_t TypeID = 300591;
+    static const uint32_t kMsgType = 300591;
 public:
     // Extend Fields 各业务扩展字段
     // 无扩展字段
 public:
-    virtual uint32_t Type() const override { return TypeID; }
+    virtual uint32_t MsgType() const override { return kMsgType; }
 };
 
 // 转融通证券出借业务逐笔成交行情 TransactionSnapshot_300791
@@ -1055,17 +923,16 @@ class TransactionSnapshot_300791 : public TransactionSnapshotBase<b>
 {
     typedef TransactionSnapshotBase<b> base_type;
 public:
-    static const uint32_t TypeID = 300791;
+    static const uint32_t kMsgType = 300791;
 public:
     // Extend Fields 各业务扩展字段
     // 无扩展字段
 public:
-    virtual uint32_t Type() const override { return TypeID; }
+    virtual uint32_t MsgType() const override { return kMsgType; }
 };
 
 namespace immutable_
 {
-typedef cn::szse::binary::MsgHeader<false> MsgHeader;
 typedef cn::szse::binary::Logon<false> Logon;
 typedef cn::szse::binary::Logout<false> Logout;
 typedef cn::szse::binary::Heartbeat<false> Heartbeat;
@@ -1094,7 +961,6 @@ typedef cn::szse::binary::TransactionSnapshot_300791<false> TransactionSnapshot_
 
 namespace mutable_
 {
-typedef cn::szse::binary::MsgHeader<true> MsgHeader;
 typedef cn::szse::binary::Logon<true> Logon;
 typedef cn::szse::binary::Logout<true> Logout;
 typedef cn::szse::binary::Heartbeat<true> Heartbeat;
