@@ -33,11 +33,11 @@ public:
     }
     bool load(const char** mem_addr, size_t* mem_size, size_t load_count)
     {
-        if (mem_addr == nullptr || mem_size == nullptr)
+        if (mem_addr == nullptr || *mem_addr == nullptr
+            || mem_size == nullptr || load_count == 0)
         {
             return false;
         }
-        // 合法性检查
         TyField check_field;
         if (*mem_size < load_count * field_mem_size_)
         {
@@ -104,11 +104,19 @@ public:
     bool load(const char** mem_addr, size_t* mem_size, size_t load_count)
     {
         field_list_.clear();
-
+        if (mem_addr == nullptr || *mem_addr == nullptr
+            || mem_size == nullptr || load_count == 0)
+        {
+            return false;
+        }
         TyField load_field;
         while (load_count--)
         {
-            if (!load_field.Load(*mem_addr, *mem_size)) { return false; }
+            if (!load_field.Load(*mem_addr, *mem_size))
+            {
+                field_list_.clear();
+                return false;
+            }
             field_list_.push_back(load_field);
             (*mem_addr) += field_mem_size_;
             (*mem_size) -= field_mem_size_;
